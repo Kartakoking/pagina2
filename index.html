@@ -1,0 +1,4224 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Préstamos — Gestión de cartera</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Lora:ital,wght@0,500;0,600;0,700;1,400&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    :root {
+      --primary:       #0F172A;
+      --primary-light: #1E293B;
+      --primary-hover: #334155;
+      --brand:         #059669;
+      --brand-light:   #10B981;
+      --brand-gradient: linear-gradient(135deg, #10B981 0%, #059669 100%);
+      --accent:        #6366F1;
+      --accent-light:  #818CF8;
+      --accent-gold:   #D97706;
+      --bg:            #F8FAFC;
+      --surface:       #FFFFFF;
+      --surface-hover: #F1F5F9;
+      --text:          #0F172A;
+      --muted:         #64748B;
+      --border:        #E2E8F0;
+      --border-subtle: #F1F5F9;
+      --success:       #059669;
+      --success-bg:    #ECFDF5;
+      --warning:       #D97706;
+      --warning-bg:    #FFFBEB;
+      --error:         #DC2626;
+      --error-bg:      #FEF2F2;
+      --shadow-sm:     0 2px 4px rgba(15,23,42,0.03), 0 1px 2px rgba(15,23,42,0.02);
+      --shadow-md:     0 10px 25px -3px rgba(15,23,42,0.06), 0 4px 6px -2px rgba(15,23,42,0.03);
+      --shadow-lg:     0 20px 40px -6px rgba(15,23,42,0.1), 0 8px 16px -4px rgba(15,23,42,0.06);
+      --shadow-hover:  0 14px 28px -4px rgba(16,185,129,0.15), 0 6px 12px -2px rgba(15,23,42,0.06);
+      --radius-sm:     8px;
+      --radius:        14px;
+      --radius-lg:     20px;
+      --transition:    250ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    /* ─── Reset & Base ─── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html { font-size: 16px; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    ::selection { background: var(--brand-light); color: #fff; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #CBD5E1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94A3B8; }
+
+    /* ─── Typography ─── */
+    .font-display { font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 700; }
+    .font-mono    { font-family: 'JetBrains Mono', 'DM Mono', monospace; }
+
+    /* ─── Loader ─── */
+    #global-loader {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      transition: opacity 300ms;
+    }
+    #global-loader.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(255, 255, 255, 0.15);
+      border-left-color: var(--brand-light);
+      border-radius: 50%;
+      animation: spin 0.8s cubic-bezier(0.5, 0, 0.5, 1) infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Header ─── */
+    .header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: linear-gradient(180deg, #0F172A 0%, #1E293B 100%);
+      color: #fff;
+      padding: 0 24px;
+      height: 64px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .header-logo {
+      width: 36px;
+      height: 36px;
+      background: var(--brand-gradient);
+      border-radius: var(--radius-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .header-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #FFFFFF;
+    }
+
+    .btn-new {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--brand-gradient);
+      color: #fff;
+      border: none;
+      padding: 9px 18px;
+      border-radius: 9999px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
+      transition: all var(--transition);
+    }
+
+    .btn-new:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.45);
+    }
+    .btn-new:active { transform: translateY(0); }
+
+    /* ─── Tabs ─── */
+    .tabs {
+      position: sticky;
+      top: 64px;
+      z-index: 90;
+      background: #0F172A;
+      display: flex;
+      padding: 6px 24px;
+      gap: 6px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: #94A3B8;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.875rem;
+      font-weight: 600;
+      padding: 9px 16px;
+      border-radius: 9999px;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .tab-btn:hover { color: #F1F5F9; background: rgba(255, 255, 255, 0.06); }
+    .tab-btn.is-active {
+      color: #FFFFFF;
+      background: rgba(16, 185, 129, 0.2);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
+    }
+
+    /* ─── Main Layout ─── */
+    .main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 28px 24px 80px;
+    }
+
+    .view { display: none; }
+    .view.is-active { display: block; }
+
+    /* ─── Stats Bar ─── */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      box-shadow: var(--shadow-md);
+      transition: all var(--transition);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--brand-gradient);
+    }
+
+    .stat-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .stat-label {
+      font-size: 0.725rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .stat-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    .stat-card--accent .stat-value { color: var(--brand); }
+    .stat-card--success .stat-value { color: var(--success); }
+    .stat-card--error .stat-value { color: var(--error); }
+
+    /* ─── Section Header ─── */
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+
+    .section-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .section-line {
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─── Category Chips (filters) ─── */
+    .chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 24px;
+    }
+
+    .chip {
+      padding: 7px 16px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      border-radius: 9999px;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .chip:hover {
+      border-color: #CBD5E1;
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    .chip.is-active {
+      background: var(--brand-gradient);
+      border-color: transparent;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+
+    .chip .chip-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.725rem;
+      opacity: 0.85;
+      margin-left: 6px;
+      padding: 1px 6px;
+      background: rgba(0,0,0,0.06);
+      border-radius: 9999px;
+    }
+    .chip.is-active .chip-count {
+      background: rgba(255,255,255,0.25);
+    }
+
+    /* ─── Category Badge ─── */
+    .cat-badge {
+      font-size: 0.725rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 4px 10px;
+      border-radius: 9999px;
+      white-space: nowrap;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .cat-badge--current    { background: #ECFDF5; color: #047857; border: 1px solid #A7F3D0; }
+    .cat-badge--late       { background: #FFFBEB; color: #B45309; border: 1px solid #FDE68A; }
+    .cat-badge--defaulted  { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
+    .cat-badge--paid       { background: #EEF2FF; color: #4338CA; border: 1px solid #C7D2FE; }
+
+    /* ─── Loan Card ─── */
+    .loan-list {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .loan-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      cursor: pointer;
+      transition: all var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .loan-card:hover {
+      box-shadow: var(--shadow-hover);
+      border-color: var(--brand-light);
+      transform: translateY(-2px);
+    }
+
+    .loan-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .loan-card__badges {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .loan-card__id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: var(--brand);
+      background: #ECFDF5;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      border: 1px solid #A7F3D0;
+      white-space: nowrap;
+    }
+
+    .loan-card__status {
+      font-size: 0.725rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 3px 10px;
+      border-radius: 9999px;
+      white-space: nowrap;
+    }
+
+    .loan-card__status--active {
+      background: #ECFDF5;
+      color: #047857;
+      border: 1px solid #A7F3D0;
+    }
+
+    .loan-card__status--paid {
+      background: #EEF2FF;
+      color: #4338CA;
+      border: 1px solid #C7D2FE;
+    }
+
+    .loan-card__status--renewed {
+      background: #F1F5F9;
+      color: #475569;
+      border: 1px solid #CBD5E1;
+    }
+
+    .loan-card__name {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .loan-card__meta {
+      font-size: 0.875rem;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .loan-card__amount {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* ─── Progress Bar ─── */
+    .progress-wrap {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 8px;
+      background: #E2E8F0;
+      border-radius: 9999px;
+      overflow: hidden;
+    }
+
+    .progress-bar__fill {
+      height: 100%;
+      border-radius: 9999px;
+      transition: width 0.4s ease;
+    }
+
+    .progress-bar__fill--ok   { background: var(--brand-gradient); }
+    .progress-bar__fill--warn { background: var(--warning); }
+    .progress-bar__fill--bad  { background: var(--error); }
+
+    .progress-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.775rem;
+      font-weight: 600;
+      color: var(--muted);
+      min-width: 40px;
+      text-align: right;
+    }
+
+    /* ─── Loan Table (vista tipo hoja de cálculo) ─── */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-md);
+      overflow-x: auto;
+    }
+
+    .loan-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+      min-width: 760px;
+    }
+
+    .loan-table th {
+      text-align: left;
+      font-size: 0.725rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 10px 12px;
+      border-bottom: 1.5px solid var(--border);
+      background: var(--bg);
+      white-space: nowrap;
+    }
+
+    .loan-table td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+      white-space: nowrap;
+    }
+
+    .loan-table tbody tr:last-child td { border-bottom: none; }
+
+    .loan-table tbody tr:nth-child(even) td { background: var(--bg); }
+
+    .loan-row {
+      cursor: pointer;
+      transition: box-shadow var(--transition);
+    }
+
+    .loan-row:hover td {
+      background: #F0F7F3 !important;
+      box-shadow: inset 3px 0 0 var(--primary-light);
+    }
+
+    .loan-table .col-folio    { font-family: 'DM Mono', monospace; color: var(--muted); }
+    .loan-table .col-client   { font-weight: 600; color: var(--text); }
+    .loan-table .col-amount   { font-family: 'DM Mono', monospace; font-weight: 500; }
+    .loan-table .col-weeks    { font-family: 'DM Mono', monospace; color: var(--muted); }
+    .loan-table .col-progress { min-width: 130px; }
+    .loan-table .col-next     { font-size: 0.8125rem; color: var(--muted); }
+    .loan-table .col-next strong { color: var(--text); font-weight: 500; font-family: 'DM Mono', monospace; }
+
+    .loan-table .mini-progress {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .loan-table .mini-bar {
+      flex: 1;
+      min-width: 70px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+
+    .loan-table .mini-bar__fill {
+      height: 100%;
+      border-radius: 3px;
+    }
+
+    .loan-table .mini-pct {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    .loan-table td.cat-cell {
+      display: table-cell;
+    }
+
+    /* ─── Client Table (igual que la de préstamos) ─── */
+    .client-row {
+      cursor: pointer;
+      transition: box-shadow var(--transition);
+    }
+
+    .client-row:hover td {
+      background: #F0F7F3 !important;
+      box-shadow: inset 3px 0 0 var(--primary-light);
+    }
+
+    .client-cell {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .sheet-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary);
+      color: #fff;
+      font-family: 'Lora', serif;
+      font-size: 0.7rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .sheet-avatar--late      { background: #B45309; }
+    .sheet-avatar--defaulted { background: var(--error); }
+
+    .sheet-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .loan-table .col-phone    { font-family: 'DM Mono', monospace; color: var(--muted); }
+    .loan-table .col-address,
+    .loan-table .col-aval     { font-size: 0.8125rem; color: var(--muted); max-width: 180px; overflow: hidden; text-overflow: ellipsis; }
+    .loan-table .col-loans    { font-family: 'DM Mono', monospace; color: var(--muted); }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Lora', serif;
+      font-size: 1rem;
+      font-weight: 600;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .avatar--late      { background: #B45309; }
+    .avatar--defaulted { background: var(--error); }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      border-radius: 50%;
+      display: block;
+    }
+
+    /* ─── Fotos del cliente ─── */
+    .photo-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .upload-box {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      min-height: 132px;
+      padding: 10px;
+      background: var(--bg);
+      border: 1.5px dashed var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      text-align: center;
+      transition: border-color var(--transition);
+    }
+
+    .upload-box:hover { border-color: var(--primary-light); }
+
+    .upload-box.has-photo {
+      border-style: solid;
+      border-color: var(--primary-light);
+    }
+
+    .upload-box img {
+      width: 100%;
+      height: 100px;
+      object-fit: cover;
+      border-radius: var(--radius-sm);
+    }
+
+    .upload-box__empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 8px 0;
+    }
+
+    .upload-box__title {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+    }
+
+    .upload-box__remove {
+      position: absolute;
+      top: 6px;
+      right: 6px;
+      width: 24px;
+      height: 24px;
+      border: none;
+      border-radius: 50%;
+      background: rgba(0,0,0,0.55);
+      color: #fff;
+      font-size: 14px;
+      line-height: 1;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+    }
+
+    .upload-box__remove:hover { background: var(--error); }
+
+    .detail-photos {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .detail-thumb {
+      width: 100%;
+      height: 150px;
+      object-fit: cover;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      cursor: zoom-in;
+      transition: opacity var(--transition);
+      display: block;
+    }
+
+    .detail-thumb:hover { opacity: 0.85; }
+
+    .detail-thumb--empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 0.8125rem;
+      cursor: default;
+      background: var(--bg);
+      border: 1.5px dashed var(--border);
+    }
+
+    .photo-slot__label {
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .photo-lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.85);
+      z-index: 400;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 200ms ease;
+      cursor: zoom-out;
+    }
+
+    .photo-lightbox.is-open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .photo-lightbox img {
+      max-width: 92vw;
+      max-height: 92vh;
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* ─── Empty State ─── */
+    .empty-state {
+      text-align: center;
+      padding: 64px 24px;
+      color: var(--muted);
+    }
+
+    .empty-state__icon {
+      width: 64px;
+      height: 64px;
+      background: var(--bg);
+      border: 2px dashed var(--border);
+      border-radius: var(--radius-lg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 20px;
+    }
+
+    .empty-state__title {
+      font-family: 'Lora', serif;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .empty-state__body {
+      font-size: 0.9rem;
+      max-width: 260px;
+      margin: 0 auto;
+    }
+
+    /* ─── Modal ─── */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.6);
+      backdrop-filter: blur(8px);
+      z-index: 200;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 300ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .modal-overlay.is-open {
+      opacity: 1;
+      pointer-events: all;
+    }
+
+    .modal-panel {
+      background: var(--surface);
+      width: 100%;
+      max-width: 520px;
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      transform: scale(0.95) translateY(12px);
+      transition: transform 300ms cubic-bezier(0.16, 1, 0.3, 1);
+      max-height: 90vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .modal-overlay.is-open .modal-panel {
+      transform: scale(1) translateY(0);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    .modal-title {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+    }
+
+    .modal-close {
+      width: 34px;
+      height: 34px;
+      border: none;
+      background: var(--bg);
+      border-radius: 9999px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      transition: all var(--transition);
+    }
+
+    .modal-close:hover { background: #E2E8F0; color: var(--text); }
+
+    .modal-note {
+      background: #F8FAFC;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 14px;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      margin-bottom: 20px;
+    }
+
+    .modal-note strong { color: var(--text); font-weight: 600; }
+
+    /* ─── Form ─── */
+    .form-group {
+      margin-bottom: 20px;
+    }
+
+    .form-label {
+      display: block;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 6px;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 11px 14px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.9375rem;
+      color: var(--text);
+      background: var(--surface);
+      transition: all var(--transition);
+      outline: none;
+    }
+
+    /* ─── Buscador con sugerencias ─── */
+    .client-picker { position: relative; }
+
+    .suggest-box {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      margin-top: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-lg);
+      z-index: 20;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .suggest-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      color: var(--text);
+      transition: background var(--transition);
+    }
+
+    .suggest-item:hover { background: #F1F5F9; }
+
+    .suggest-item--empty {
+      color: var(--muted);
+      cursor: default;
+    }
+
+    .suggest-item--empty:hover { background: transparent; }
+
+    .suggest-busy {
+      color: var(--muted);
+      font-size: 0.75rem;
+    }
+
+    .suggest-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--primary);
+      color: #fff;
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .suggest-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    select.form-input {
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%2364748B' stroke-width='2.5' stroke-linecap='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 14px center;
+      padding-right: 40px;
+    }
+
+    .form-input:focus {
+      border-color: var(--brand-light);
+      box-shadow: 0 0 0 3.5px rgba(16, 185, 129, 0.15);
+    }
+
+    .form-input.has-error {
+      border-color: var(--error);
+      box-shadow: 0 0 0 3.5px rgba(220, 38, 38, 0.15);
+    }
+
+    .form-input:disabled {
+      background: var(--bg);
+      color: var(--muted);
+      cursor: not-allowed;
+    }
+
+    textarea.form-input { resize: vertical; min-height: 64px; }
+
+    .form-hint {
+      font-size: 0.775rem;
+      color: var(--muted);
+      margin-top: 6px;
+    }
+
+    .form-error-msg {
+      font-size: 0.775rem;
+      color: var(--error);
+      margin-top: 4px;
+      display: none;
+      font-weight: 500;
+    }
+
+    .form-group.is-error .form-error-msg { display: block; }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    /* ─── Buttons ─── */
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 28px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 12px 18px;
+      border-radius: var(--radius-sm);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-size: 0.9375rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all var(--transition);
+    }
+
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none !important; }
+
+    .btn-primary {
+      background: var(--brand-gradient);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);
+    }
+    .btn-primary:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+    }
+    .btn-primary:active:not(:disabled) { transform: translateY(0); }
+
+    .btn-ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-ghost:hover:not(:disabled) { background: #F1F5F9; border-color: #CBD5E1; }
+
+    .btn-danger {
+      background: var(--error);
+      color: #fff;
+      box-shadow: 0 4px 14px rgba(220, 38, 38, 0.25);
+    }
+    .btn-danger:hover:not(:disabled) { background: #B91C1C; transform: translateY(-2px); }
+
+    /* ─── Detail View (modals) ─── */
+    .detail-section {
+      margin-bottom: 28px;
+    }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+
+    .detail-field__label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .detail-field__value {
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: var(--text);
+      word-break: break-word;
+    }
+
+    .detail-field__value.mono {
+      font-family: 'DM Mono', monospace;
+    }
+
+    .detail-field__value--empty { color: var(--muted); font-weight: 400; }
+
+    /* ─── Client Detail Header ─── */
+    .client-detail-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+
+    .client-detail-head .avatar {
+      width: 56px;
+      height: 56px;
+      font-size: 1.25rem;
+    }
+
+    .client-detail-head__name {
+      font-family: 'Lora', serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+      line-height: 1.3;
+    }
+
+    .client-detail-head__phone {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+
+    /* ─── Payment Table ─── */
+    .payment-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+
+    .payment-table th {
+      text-align: left;
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+      padding: 8px 10px;
+      border-bottom: 1.5px solid var(--border);
+    }
+
+    .payment-table td {
+      padding: 10px 10px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+
+    .payment-table tr:last-child td { border-bottom: none; }
+
+    .payment-table tr:nth-child(even) td { background: var(--bg); }
+
+    .payment-table .col-week  { font-family: 'DM Mono', monospace; color: var(--muted); width: 56px; }
+    .payment-table .col-date  { font-family: 'DM Mono', monospace; }
+    .payment-table .col-amount{ font-family: 'DM Mono', monospace; font-weight: 500; }
+    .payment-table .col-status{ width: 80px; text-align: center; }
+
+    .payment-table tr.is-overdue td.col-date { color: var(--error); font-weight: 500; }
+
+    .pay-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: var(--muted);
+      transition: all var(--transition);
+    }
+
+    .pay-btn:hover { border-color: var(--success); color: var(--success); background: #D1FAE5; }
+    .pay-btn.is-paid { border-color: var(--success); background: var(--success); color: #fff; cursor: default; }
+
+    /* ─── History Loan Rows (client detail) ─── */
+    .history-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .history-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      cursor: pointer;
+      transition: border-color var(--transition), box-shadow var(--transition);
+    }
+
+    .history-item:hover {
+      border-color: var(--primary-light);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .history-item__num {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .history-item__body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .history-item__amount {
+      font-family: 'DM Mono', monospace;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    .history-item__meta {
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+
+    /* ─── Toast ─── */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 300;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .toast {
+      background: var(--primary);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: var(--radius);
+      font-size: 0.875rem;
+      font-weight: 500;
+      box-shadow: var(--shadow-lg);
+      animation: toastIn 0.3s ease forwards;
+      white-space: nowrap;
+      max-width: calc(100vw - 32px);
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toast.toast--success { background: var(--success); }
+    .toast.toast--error   { background: var(--error); }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ─── Confirm Dialog ─── */
+    .confirm-body {
+      text-align: center;
+      padding: 8px 0 24px;
+    }
+
+    .confirm-body p {
+      font-size: 0.9375rem;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+
+    /* ─── Header: acciones de respaldo ─── */
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-header-tool {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border: none;
+      padding: 8px 10px;
+      border-radius: var(--radius);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background var(--transition);
+    }
+
+    .btn-header-tool:hover { background: rgba(255,255,255,0.24); }
+
+    /* ─── Encabezados ordenables ─── */
+    .loan-table th.is-sortable {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .loan-table th.is-sortable:hover { color: var(--primary-light); }
+
+    .sort-arrow {
+      font-size: 0.6rem;
+      margin-left: 3px;
+    }
+
+    /* ─── Buscador sobre la tabla ─── */
+    .table-tools {
+      margin-bottom: 12px;
+    }
+
+    .table-search {
+      max-width: 280px;
+      padding: 8px 12px;
+      font-size: 0.875rem;
+    }
+
+    /* ─── Date Filter Row ─── */
+    .date-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .date-filter-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+
+    .date-filter-input {
+      padding: 7px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8125rem;
+      color: var(--text);
+      background: var(--surface);
+      outline: none;
+      transition: border-color var(--transition);
+    }
+
+    .date-filter-input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(27,67,50,0.10);
+    }
+
+    .btn-filter-clear {
+      padding: 7px 12px;
+      border: 1.5px solid var(--border);
+      background: var(--bg);
+      border-radius: var(--radius-sm);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8125rem;
+      color: var(--muted);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .btn-filter-clear:hover { border-color: var(--error); color: var(--error); }
+
+    .summary-table-totals td {
+      font-family: 'DM Mono', monospace;
+      font-weight: 600;
+      color: var(--primary);
+      background: #F0F7F3 !important;
+      border-top: 2px solid var(--primary-light);
+    }
+
+    /* ─── Summary Filter Chips ─── */
+    .summary-filter-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .summary-filter-label {
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--muted);
+      white-space: nowrap;
+      margin-right: 4px;
+    }
+
+    .filter-chip {
+      padding: 6px 16px;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      border-radius: 20px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: var(--text);
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+
+    .filter-chip:hover { border-color: var(--primary-light); }
+
+    .filter-chip.is-active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+
+    .badge-renewed {
+      background: #EDE9FE;
+      color: #7C3AED;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .badge-additional {
+      background: #DBEAFE;
+      color: #2563EB;
+      font-size: 0.7rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 3px 8px;
+      border-radius: 20px;
+      white-space: nowrap;
+    }
+
+    .col-discount { font-family: 'DM Mono', monospace; color: var(--error); font-weight: 500; }
+    .col-delivered { font-family: 'DM Mono', monospace; font-weight: 600; color: var(--success); }
+
+    .db-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-left: 8px;
+      transition: all var(--transition);
+    }
+    .db-status-badge.connected {
+      background: #ECFDF5;
+      color: #059669;
+      border: 1px solid #A7F3D0;
+    }
+    .db-status-badge.disconnected {
+      background: #FEF2F2;
+      color: #DC2626;
+      border: 1px solid #FCA5A5;
+    }
+    .db-status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: currentColor;
+    }
+
+    /* ─── Responsive ─── */
+    @media (max-width: 480px) {
+      .btn-header-tool .btn-tool-label { display: none; }
+      .stats {
+        grid-template-columns: 1fr 1fr;
+      }
+      .stats .stat-card:first-child {
+        grid-column: 1 / -1;
+      }
+      .form-row { grid-template-columns: 1fr; gap: 0; }
+      .photo-row { grid-template-columns: 1fr; }
+      .detail-photos { grid-template-columns: 1fr; }
+    }
+
+    @media (min-width: 640px) {
+      .main { padding: 32px 24px 80px; }
+      .modal-panel { border-radius: var(--radius-lg); margin: 24px; align-self: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ─── Pantalla de Carga ─── -->
+  <div id="global-loader">
+    <div class="spinner"></div>
+    <div style="margin-top: 16px; font-weight: 600; color: var(--primary); font-size: 1rem;">Cargando información...</div>
+  </div>
+
+  <!-- ─── Header ─── -->
+  <header class="header">
+    <div class="header-brand">
+      <div class="header-logo">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>
+        </svg>
+      </div>
+      <span class="header-title">Préstamos</span>
+      <div id="db-status" class="db-status-badge disconnected" title="Estado de la base de datos">
+        <span class="db-status-dot"></span>
+        <span id="db-status-text">Conectando...</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn-header-tool" id="btn-export" title="Descargar respaldo de datos" aria-label="Descargar respaldo">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+        </svg>
+        <span class="btn-tool-label">Respaldo</span>
+      </button>
+      <button class="btn-header-tool" id="btn-import" title="Restaurar un respaldo" aria-label="Restaurar respaldo">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <span class="btn-tool-label">Restaurar</span>
+      </button>
+      <button class="btn-new" id="btn-header-new" aria-label="Nuevo">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+        </svg>
+        Nuevo
+      </button>
+    </div>
+  </header>
+
+  <!-- ─── Tabs ─── -->
+  <nav class="tabs">
+    <button class="tab-btn is-active" data-tab="loans">Préstamos</button>
+    <button class="tab-btn" data-tab="clients">Clientes</button>
+    <button class="tab-btn" data-tab="renewals">Renovar</button>
+  </nav>
+
+  <!-- ─── Main ─── -->
+  <main class="main">
+
+    <!-- ═══ Vista: Préstamos ═══ -->
+    <section class="view is-active" id="view-loans">
+      <div class="stats" id="stats">
+        <div class="stat-card">
+          <div class="stat-label">Préstamos activos</div>
+          <div class="stat-value" id="stat-active">0</div>
+        </div>
+        <div class="stat-card stat-card--accent">
+          <div class="stat-label">Total prestado</div>
+          <div class="stat-value" id="stat-total">$0</div>
+        </div>
+        <div class="stat-card stat-card--success">
+          <div class="stat-label">Total cobrado</div>
+          <div class="stat-value" id="stat-collected">$0</div>
+        </div>
+      </div>
+
+      <div class="section-header">
+        <span class="section-title">Préstamos</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="chips" id="loan-filters">
+        <!-- injected by JS -->
+      </div>
+
+      <div id="loan-list-container">
+        <!-- injected by JS -->
+      </div>
+    </section>
+
+    <!-- ═══ Vista: Clientes ═══ -->
+    <section class="view" id="view-clients">
+      <div class="section-header">
+        <span class="section-title">Clientes</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div class="chips" id="client-filters">
+        <!-- injected by JS -->
+      </div>
+
+      <div id="client-list-container">
+        <!-- injected by JS -->
+      </div>
+    </section>
+
+    <!-- ═══ Vista: Renovar (solo clientes liquidados) ═══ -->
+    <section class="view" id="view-renewals">
+
+      <!-- ── NUEVA: Tabla resumen de préstamos otorgados ── -->
+      <div class="section-header">
+        <span class="section-title">Resumen de Préstamos Otorgados</span>
+        <div class="section-line"></div>
+      </div>
+      <div id="loans-summary-container">
+        <!-- injected by JS -->
+      </div>
+
+      <div class="section-header" style="margin-top:40px;">
+        <span class="section-title">Clientes liquidados / Semana 13+</span>
+        <div class="section-line"></div>
+      </div>
+
+      <div id="renewal-list-container">
+        <!-- injected by JS -->
+      </div>
+
+      <div class="section-header" style="margin-top:40px;">
+        <span class="section-title">Créditos Adicionales</span>
+        <div class="section-line"></div>
+      </div>
+      <div id="additional-loans-container">
+        <!-- injected by JS -->
+      </div>
+
+      <div class="section-header" style="margin-top:40px;">
+        <span class="section-title">Clientes con Préstamo Adicional (2 Activos)</span>
+        <div class="section-line"></div>
+      </div>
+      <div id="multiple-loans-container">
+        <!-- injected by JS -->
+      </div>
+
+      <div class="section-header" style="margin-top:40px;">
+        <span class="section-title">Créditos Nuevos</span>
+        <div class="section-line"></div>
+      </div>
+      <div id="issued-loans-container">
+        <!-- injected by JS -->
+      </div>
+    </section>
+  </main>
+
+  <!-- ─── Modal: Préstamo (Crear / Editar / Renovar) ─── -->
+  <div class="modal-overlay" id="modal-loan-form" role="dialog" aria-modal="true" aria-labelledby="modal-loan-form-title">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-loan-form-title">Nuevo préstamo</h2>
+        <button class="modal-close" id="btn-close-loan-form" aria-label="Cerrar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-note" id="loan-form-note" hidden></div>
+      <form id="loan-form" novalidate>
+        <div class="form-group" id="fg-client">
+          <label class="form-label" for="form-client">Cliente</label>
+          <div class="client-picker">
+            <input class="form-input" type="text" id="form-client-search" placeholder="Buscar cliente por nombre…" autocomplete="off" style="margin-bottom:8px" hidden>
+            <div class="suggest-box" id="client-suggest" hidden></div>
+          </div>
+          <select class="form-input" id="form-client">
+            <option value="">— Selecciona un cliente —</option>
+          </select>
+          <p class="form-error-msg">Selecciona un cliente.</p>
+        </div>
+        <div class="form-group" id="fg-amount">
+          <label class="form-label" for="form-amount">Monto del préstamo</label>
+          <input class="form-input" type="number" id="form-amount" placeholder="Ej: 10000" min="1000" step="1000">
+          <p class="form-hint">Solo se prestan miles: $1,000, $2,000, $5,000, $10,000… · $70 semanales por cada $1,000 (Ej: $10,000 -> $700/semana)</p>
+          <p class="form-error-msg">El monto debe ser en miles exactos: 1,000, 2,000, 3,000…</p>
+        </div>
+        <div class="form-group" id="fg-date">
+          <label class="form-label" for="form-date">Fecha de inicio (Lunes)</label>
+          <input class="form-input" type="date" id="form-date">
+          <p class="form-hint" id="loan-end-hint"></p>
+          <p class="form-error-msg">La fecha es obligatoria y debe ser Lunes.</p>
+        </div>
+        <div class="btn-group">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-loan-form">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-loan-form">Crear préstamo</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Cliente (Crear / Editar) ─── -->
+  <div class="modal-overlay" id="modal-client-form" role="dialog" aria-modal="true" aria-labelledby="modal-client-form-title">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-client-form-title">Nuevo cliente</h2>
+        <button class="modal-close" id="btn-close-client-form" aria-label="Cerrar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <form id="client-form" novalidate>
+        <input type="hidden" id="form-client-id">
+        <div class="form-group" id="fg-c-name">
+          <label class="form-label" for="form-c-name">Nombre</label>
+          <input class="form-input" type="text" id="form-c-name" placeholder="Ej: María López" autocomplete="off">
+          <p class="form-error-msg">El nombre es obligatorio.</p>
+        </div>
+        <div class="form-row">
+          <div class="form-group" id="fg-c-phone">
+            <label class="form-label" for="form-c-phone">Teléfono</label>
+            <input class="form-input" type="tel" id="form-c-phone" placeholder="Ej: 555 123 4567" autocomplete="off">
+          </div>
+          <div class="form-group" id="fg-c-address">
+            <label class="form-label" for="form-c-address">Dirección</label>
+            <input class="form-input" type="text" id="form-c-address" placeholder="Ej: Calle Flores 123, Col. Centro" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-group" id="fg-c-aval">
+          <label class="form-label">Aval (fiador)</label>
+          <input class="form-input" type="text" id="form-c-aval-name" placeholder="Nombre del aval" autocomplete="off" style="margin-bottom:8px">
+          <div class="form-row" style="margin-top:2px">
+            <input class="form-input" type="tel" id="form-c-aval-phone" placeholder="Teléfono del aval" autocomplete="off">
+            <input class="form-input" type="text" id="form-c-aval-address" placeholder="Dirección del aval" autocomplete="off">
+          </div>
+          <p class="form-hint">Persona que responde por el préstamo (opcional).</p>
+        </div>
+        <div class="form-group" id="fg-c-ref">
+          <label class="form-label">Referencia 1</label>
+          <input class="form-input" type="text" id="form-c-ref-name" placeholder="Nombre de la referencia 1" autocomplete="off" style="margin-bottom:8px">
+          <div class="form-row" style="margin-top:2px">
+            <input class="form-input" type="tel" id="form-c-ref-phone" placeholder="Teléfono de la referencia 1" autocomplete="off">
+            <input class="form-input" type="text" id="form-c-ref-address" placeholder="Dirección de la referencia 1" autocomplete="off">
+          </div>
+          <p class="form-hint">Persona conocida del cliente (obligatoria).</p>
+          <p class="form-error-msg">El nombre de la referencia 1 es obligatorio.</p>
+        </div>
+        <div class="form-group" id="fg-c-ref2">
+          <label class="form-label">Referencia 2</label>
+          <input class="form-input" type="text" id="form-c-ref2-name" placeholder="Nombre de la referencia 2" autocomplete="off" style="margin-bottom:8px">
+          <div class="form-row" style="margin-top:2px">
+            <input class="form-input" type="tel" id="form-c-ref2-phone" placeholder="Teléfono de la referencia 2" autocomplete="off">
+            <input class="form-input" type="text" id="form-c-ref2-address" placeholder="Dirección de la referencia 2" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-group" id="fg-c-ref3">
+          <label class="form-label">Referencia 3</label>
+          <input class="form-input" type="text" id="form-c-ref3-name" placeholder="Nombre de la referencia 3" autocomplete="off" style="margin-bottom:8px">
+          <div class="form-row" style="margin-top:2px">
+            <input class="form-input" type="tel" id="form-c-ref3-phone" placeholder="Teléfono de la referencia 3" autocomplete="off">
+            <input class="form-input" type="text" id="form-c-ref3-address" placeholder="Dirección de la referencia 3" autocomplete="off">
+          </div>
+        </div>
+        <div class="form-group" id="fg-c-photos">
+          <label class="form-label">Fotos</label>
+          <div class="photo-row">
+            <div class="upload-box" id="box-photo" title="Elegir una foto del cliente">
+              <img id="preview-photo" alt="Foto del cliente" hidden>
+              <div id="empty-photo" class="upload-box__empty">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M23 19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+                  <circle cx="12" cy="13" r="4"/>
+                </svg>
+                <span>Foto del cliente</span>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:4px">
+                  <button type="button" class="btn btn-ghost" id="btn-gallery-photo" style="flex:none;padding:7px 10px;font-size:.75rem">
+                    📷 Galería
+                  </button>
+                  <button type="button" class="btn btn-ghost" id="btn-camera-photo" style="flex:none;padding:7px 10px;font-size:.75rem">
+                    Cámara
+                  </button>
+                </div>
+              </div>
+              <input type="file" accept="image/*" id="input-photo" hidden>
+              <input type="file" accept="image/*" capture="environment" id="input-camera-photo" hidden>
+              <button type="button" class="upload-box__remove" id="remove-photo" hidden aria-label="Quitar foto">✕</button>
+            </div>
+            <label class="upload-box" id="box-lightbill" title="Tomar o elegir foto del recibo de luz">
+              <img id="preview-lightbill" alt="Recibo de luz" hidden>
+              <div id="empty-lightbill" class="upload-box__empty">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <line x1="12" y1="18" x2="12" y2="12"/>
+                  <line x1="9" y1="15" x2="15" y2="15"/>
+                </svg>
+                <span>Recibo de luz</span>
+                <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:4px">
+                  <button type="button" class="btn btn-ghost" id="btn-gallery-lightbill" style="flex:none;padding:7px 10px;font-size:.75rem">
+                    📷 Galería
+                  </button>
+                  <button type="button" class="btn btn-ghost" id="btn-camera-lightbill" style="flex:none;padding:7px 10px;font-size:.75rem">
+                    Cámara
+                  </button>
+                </div>
+              </div>
+              <input type="file" accept="image/*" id="input-lightbill" hidden>
+              <input type="file" accept="image/*" capture="environment" id="input-camera-lightbill" hidden>
+              <button type="button" class="upload-box__remove" id="remove-lightbill" hidden aria-label="Quitar recibo">✕</button>
+            </label>
+          </div>
+          <p class="form-hint">Toca cada recuadro para tomar o elegir una foto (se guarda en tu dispositivo).</p>
+        </div>
+        <div class="btn-group">
+          <button type="button" class="btn btn-ghost" id="btn-cancel-client-form">Cancelar</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-client-form">Guardar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Detalle de préstamo ─── -->
+  <div class="modal-overlay" id="modal-loan-detail" role="dialog" aria-modal="true" aria-labelledby="modal-loan-detail-title">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modal-loan-detail-title">Detalle del préstamo</h2>
+        <button class="modal-close" id="btn-close-loan-detail" aria-label="Cerrar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div id="loan-detail-content"><!-- injected --></div>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Detalle de cliente ─── -->
+  <div class="modal-overlay" id="modal-client-detail" role="dialog" aria-modal="true" aria-labelledby="modal-client-detail-title">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 class="modal-title">Perfil del cliente</h2>
+        <button class="modal-close" id="btn-close-client-detail" aria-label="Cerrar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div id="client-detail-content"><!-- injected --></div>
+    </div>
+  </div>
+
+  <!-- ─── Modal: Confirmar eliminación ─── -->
+  <div class="modal-overlay" id="modal-confirm" role="dialog" aria-modal="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 class="modal-title" id="confirm-title">Eliminar</h2>
+        <button class="modal-close" id="btn-close-confirm" aria-label="Cerrar">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="confirm-body">
+        <p id="confirm-message">¿Seguro que quieres eliminarlo?<br>Esta acción no se puede deshacer.</p>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-ghost" id="btn-cancel-confirm">Cancelar</button>
+        <button class="btn btn-danger" id="btn-confirm-delete">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Lightbox de fotos ─── -->
+  <div class="photo-lightbox" id="photo-lightbox">
+    <img id="lightbox-img" alt="Foto ampliada">
+  </div>
+
+  <!-- ─── Toast ─── -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- ─── Input oculto para restaurar respaldo ─── -->
+  <input type="file" accept="application/json,.json" id="input-import" hidden>
+
+  <script>
+    /* =========================================================
+       SUPABASE CONFIGURATION
+    ========================================================= */
+    const SUPABASE_URL = 'https://bdljgwyhsriapwfvrcrl.supabase.co';
+    const SUPABASE_KEY = 'sb_publishable_Fu0mdaaHGbUP8SYMBsgS2w_wWdkq4ex';
+    const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    /* ─────────────────────────────────────────
+       Data & Constants
+    ───────────────────────────────────────── */
+    const MIN_AMOUNT   = 1000;
+    const WEEKS        = 16;
+    const WEEKLY_PER_K = 70;   // pago semanal de $70 pesos por cada $1,000 prestados (Ej: $10,000 -> $700/sem)
+
+    const CATEGORY_META = {
+      current:   { label: 'Al día',   cls: 'current'   },
+      late:      { label: 'Atrasado', cls: 'late'      },
+      defaulted: { label: 'Moroso',   cls: 'defaulted' }
+    };
+
+    const STATUS_META = {
+      active:  { label: 'Activo'    },
+      paid:    { label: 'Liquidado' },
+      renewed: { label: 'Renovado'  }
+    };
+
+    let clients = [];
+    let loans   = [];
+    let nextNumber = 1;
+
+    let currentTab    = 'loans';
+    let loanFilter    = 'all';
+    let clientFilter  = 'all';
+    let deleteTarget  = null;   // { type: 'loan'|'client', id }
+    let renewOfId     = null;   // préstamo que se está renovando
+    let pendingImport = null;   // respaldo cargado, esperando confirmación
+    let loanSort      = { key: null, dir: 1 };   // null = alfabético por defecto
+    let clientSort    = { key: null, dir: 1 };
+    let loanSearch    = '';
+    let clientSearch  = '';
+    let renewalSort   = { key: null, dir: 1 };
+    let renewalSearch = '';
+    let currentPendingDeduction = 0;
+    let summaryFilter = 'week'; // 'week' | 'month' | 'all'
+    let summaryWeekDate = '';   // ISO date string of the Monday of selected week (empty = current week)
+    let summaryMonthDate = '';  // ISO string YYYY-MM for selected month (empty = current month)
+
+    /* ─────────────────────────────────────────
+       Storage & Supabase Integration
+    ───────────────────────────────────────── */
+    function updateDbStatus(isConnected) {
+      const badge = document.getElementById('db-status');
+      const text = document.getElementById('db-status-text');
+      if (badge && text) {
+        if (isConnected) {
+          badge.className = 'db-status-badge connected';
+          text.textContent = 'Conectado a DB';
+        } else {
+          badge.className = 'db-status-badge disconnected';
+          text.textContent = 'Sin conexión a DB';
+        }
+      }
+    }
+
+    async function loadData() {
+      const loader = document.getElementById('global-loader');
+      if (loader) loader.classList.remove('hidden');
+      try {
+        const [{ data: clientsData, error: ce }, { data: loansData, error: le }] = await Promise.all([
+          supabaseClient.from('clients').select('*'),
+          supabaseClient.from('loans').select('*, payments(*)')
+        ]);
+
+        if (ce || le) {
+          console.error("Error conectando a Supabase:", ce || le);
+          updateDbStatus(false);
+          showToast('Error de conexión con la base de datos Supabase', 'error');
+        } else {
+          updateDbStatus(true);
+          showToast('Conectado exitosamente a la base de datos', 'success');
+        }
+
+        if (clientsData && clientsData.length > 0) {
+          clients = clientsData.map(mapSupabaseClientToLocal);
+        } else {
+          clients = [];
+        }
+
+        if (loansData && loansData.length > 0) {
+          loans = loansData.map(mapSupabaseLoanToLocal);
+          nextNumber = Math.max(1, ...loans.map(l => l.number || 0)) + 1;
+        } else {
+          loans = [];
+          nextNumber = 1;
+        }
+      } catch (err) {
+        console.error("Supabase load error:", err);
+        updateDbStatus(false);
+        showToast('Error de conexión con Supabase', 'error');
+      } finally {
+        if (loader) loader.classList.add('hidden');
+      }
+      refreshAll();
+    }
+
+    function mapSupabaseClientToLocal(db) {
+      return {
+        id: db.id, name: db.name, phone: db.phone, address: db.address,
+        photo: db.photo_url || null, lightBill: db.light_bill_url || null,
+        aval: { name: db.aval_name || '', phone: db.aval_phone || '', address: db.aval_address || '' },
+        referencia: { name: db.ref1_name || '', phone: db.ref1_phone || '', address: db.ref1_address || '' },
+        referencia2: { name: db.ref2_name || '', phone: db.ref2_phone || '', address: db.ref2_address || '' },
+        referencia3: { name: db.ref3_name || '', phone: db.ref3_phone || '', address: db.ref3_address || '' },
+        createdAt: db.created_at
+      };
+    }
+
+    function formatClientForSupabase(c) {
+      return {
+        id: c.id, name: c.name, phone: c.phone || null, address: c.address || null,
+        photo_url: c.photo || null, light_bill_url: c.lightBill || null,
+        aval_name: (c.aval && c.aval.name) ? c.aval.name : null, 
+        aval_phone: (c.aval && c.aval.phone) ? c.aval.phone : null, 
+        aval_address: (c.aval && c.aval.address) ? c.aval.address : null,
+        ref1_name: (c.referencia && c.referencia.name) ? c.referencia.name : null, 
+        ref1_phone: (c.referencia && c.referencia.phone) ? c.referencia.phone : null, 
+        ref1_address: (c.referencia && c.referencia.address) ? c.referencia.address : null,
+        ref2_name: (c.referencia2 && c.referencia2.name) ? c.referencia2.name : null, 
+        ref2_phone: (c.referencia2 && c.referencia2.phone) ? c.referencia2.phone : null, 
+        ref2_address: (c.referencia2 && c.referencia2.address) ? c.referencia2.address : null,
+        ref3_name: (c.referencia3 && c.referencia3.name) ? c.referencia3.name : null, 
+        ref3_phone: (c.referencia3 && c.referencia3.phone) ? c.referencia3.phone : null, 
+        ref3_address: (c.referencia3 && c.referencia3.address) ? c.referencia3.address : null
+      };
+    }
+
+    function mapSupabaseLoanToLocal(db) {
+      let payments = (db.payments || []).map(p => ({
+        id: p.id, week: p.week_number, date: p.scheduled_date, amount: parseFloat(p.amount), status: p.status, paidAt: p.paid_at || null
+      })).sort((a,b) => a.week - b.week);
+      return {
+        id: db.id, number: db.folio_number, clientId: db.client_id, amount: parseFloat(db.amount),
+        startDate: db.start_date, status: db.status, previousLoanId: db.previous_loan_id || null,
+        renewedAt: db.renewed_at || null, createdAt: db.created_at, payments
+      };
+    }
+
+    async function uploadBase64ToStorage(base64Str, filepath) {
+      if (!base64Str || !base64Str.startsWith('data:image')) return base64Str;
+      const res = await fetch(base64Str);
+      const blob = await res.blob();
+      const { data, error } = await supabaseClient.storage.from('clients_media').upload(filepath, blob, { upsert: true });
+      if (error) { console.error('Upload error:', error); return null; }
+      const { data: { publicUrl } } = supabaseClient.storage.from('clients_media').getPublicUrl(filepath);
+      return publicUrl;
+    }
+
+    async function saveClientToSupabase(c) {
+       if (c.photo && c.photo.startsWith('data:image')) {
+         c.photo = await uploadBase64ToStorage(c.photo, `photos/${c.id}-${Date.now()}.jpg`);
+       }
+       if (c.lightBill && c.lightBill.startsWith('data:image')) {
+         c.lightBill = await uploadBase64ToStorage(c.lightBill, `bills/${c.id}-${Date.now()}.jpg`);
+       }
+       const { error } = await supabaseClient.from('clients').upsert(formatClientForSupabase(c));
+       if (error) throw error;
+    }
+
+    async function saveLoanToSupabase(loan) {
+      const loanRow = {
+        id: loan.id, client_id: loan.clientId, amount: loan.amount, 
+        start_date: loan.startDate, status: loan.status,
+        previous_loan_id: loan.previousLoanId, renewed_at: loan.renewedAt
+      };
+      
+      if (loan.number) loanRow.folio_number = loan.number; 
+      
+      const { data, error } = await supabaseClient.from('loans').upsert(loanRow).select('folio_number').single();
+      if (error) throw error;
+      if (!loan.number && data) loan.number = data.folio_number;
+      
+      const paymentsRows = loan.payments.map(p => ({
+        id: p.id, loan_id: loan.id, week_number: p.week,
+        scheduled_date: p.date, amount: p.amount, status: p.status, paid_at: p.paidAt
+      }));
+      await supabaseClient.from('payments').upsert(paymentsRows);
+    }
+
+    /* ─────────────────────────────────────────
+       Helpers
+    ───────────────────────────────────────── */
+    function uuid() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    function todayISO() {
+      return new Date().toISOString().split('T')[0];
+    }
+
+    function fmtCurrency(n) {
+      return '$' + Number(n).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function fmtDate(iso) {
+      if (!iso) return '—';
+      const d = new Date(iso + 'T00:00:00');
+      return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+    }
+
+    function getPaymentDate(startDate, i) {
+      const d = new Date(startDate + 'T00:00:00');
+      const day = d.getDay();
+      let daysToSat = 6 - day;
+      if (daysToSat < 0) daysToSat += 7; // if Sunday
+      d.setDate(d.getDate() + daysToSat + (i * 7));
+      return d.toISOString().split('T')[0];
+    }
+    
+    function todayOrMondayISO() {
+      const d = new Date();
+      const day = d.getDay();
+      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+      d.setDate(diff);
+      return d.toISOString().split('T')[0];
+    }
+
+    function addWeeks(dateStr, weeks) {
+      const d = new Date(dateStr + 'T00:00:00');
+      d.setDate(d.getDate() + weeks * 7);
+      return d.toISOString().split('T')[0];
+    }
+
+    function generatePayments(amount, startDate) {
+      // Regla del negocio: $98 semanales por cada $1,000 prestados, 16 semanas
+      const weekly = Math.round(amount * WEEKLY_PER_K / 1000);
+      return Array.from({ length: WEEKS }, (_, i) => ({
+        id:     uuid(),
+        week:   i + 1,
+        date:   getPaymentDate(startDate, i),
+        amount: Math.round(weekly * 100) / 100,
+        status: 'pending',
+        paidAt: null
+      }));
+    }
+
+    function escHtml(str) {
+      const d = document.createElement('div');
+      d.textContent = str == null ? '' : String(str);
+      return d.innerHTML;
+    }
+
+    function initials(name) {
+      return escHtml(name.trim().split(/\s+/).slice(0, 2).map(w => w[0] ? w[0].toUpperCase() : '').join('')) || '?';
+    }
+
+    function getClient(clientId) {
+      return clients.find(c => c.id === clientId) || null;
+    }
+
+    function clientNameOf(loan) {
+      const c = getClient(loan.clientId);
+      return c ? c.name : '(cliente eliminado)';
+    }
+
+    function loanById(id) {
+      return loans.find(l => l.id === id) || null;
+    }
+
+    function loanFolio(loan) {
+      return '#' + String(loan.number).padStart(3, '0');
+    }
+
+    // Regla: un cliente solo puede tener un préstamo activo a la vez
+    // Modificado: Si está en semana 13 o más (tiene 12 o más pagos realizados), se permite renovar, no bloquea.
+    function hasActiveLoan(clientId, exceptLoanId = null) {
+      let activeCount = 0;
+      for (const l of loans) {
+        if (l.clientId !== clientId || l.status !== 'active' || l.id === exceptLoanId) continue;
+        const paidCount = l.payments.filter(p => p.status === 'paid').length;
+        if (paidCount < 12) activeCount++;
+      }
+      return activeCount >= 2;
+    }
+
+    /* ─────────────────────────────────────────
+       Categorización automática
+    ───────────────────────────────────────── */
+    function loanCategory(loan) {
+      if (loan.status !== 'active') return 'current';
+      const overdue = loan.payments.filter(p => p.status === 'pending' && p.date < todayISO()).length;
+      if (overdue >= 3) return 'defaulted';
+      if (overdue >= 1) return 'late';
+      return 'current';
+    }
+
+    function clientCategory(clientId) {
+      // La categoría del cliente es la peor categoría entre sus préstamos activos
+      const cats = loans
+        .filter(l => l.clientId === clientId && l.status === 'active')
+        .map(loanCategory);
+      if (cats.includes('defaulted')) return 'defaulted';
+      if (cats.includes('late'))      return 'late';
+      return 'current';
+    }
+
+    function clientStatus(client) {
+      // Estado para mostrar: liquidado = ya pagó y hoy no tiene préstamos activos
+      const cLoans = loans.filter(l => l.clientId === client.id);
+      const hasActive = cLoans.some(l => l.status === 'active');
+      if (hasActive)        return clientCategory(client.id);
+      if (cLoans.length > 0) return 'paid';
+      return 'current';
+    }
+
+    function clientStatusBadge(client) {
+      const st = clientStatus(client);
+      const label = st === 'paid' ? 'Liquidado' : CATEGORY_META[st].label;
+      return `<span class="cat-badge cat-badge--${st}">${label}</span>`;
+    }
+
+    function recomputeStatus(loan) {
+      if (loan.status === 'renewed') return;   // una renovación no se deshace sola
+      loan.status = loan.payments.every(p => p.status === 'paid') ? 'paid' : 'active';
+    }
+
+    /* ─────────────────────────────────────────
+       Tabs
+    ───────────────────────────────────────── */
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('is-active', b.dataset.tab === tab));
+      document.getElementById('view-loans').classList.toggle('is-active', tab === 'loans');
+      document.getElementById('view-clients').classList.toggle('is-active', tab === 'clients');
+      document.getElementById('view-renewals').classList.toggle('is-active', tab === 'renewals');
+      // En la pestaña Renovar el botón Nuevo no aplica
+      document.getElementById('btn-header-new').style.display = tab === 'renewals' ? 'none' : '';
+    }
+
+    /* ─────────────────────────────────────────
+       Stats
+    ───────────────────────────────────────── */
+    function refreshStats() {
+      const active    = loans.filter(l => l.status === 'active').length;
+      const totalAmt  = loans.filter(l => l.status !== 'renewed')
+                             .reduce((s, l) => s + l.amount, 0);
+      const collected = loans.reduce((s, l) => {
+        return s + l.payments
+          .filter(p => p.status === 'paid')
+          .reduce((ps, p) => ps + p.amount, 0);
+      }, 0);
+
+      document.getElementById('stat-active').textContent    = active;
+      document.getElementById('stat-total').textContent     = fmtCurrency(totalAmt);
+      document.getElementById('stat-collected').textContent = fmtCurrency(collected);
+    }
+
+    /* ─────────────────────────────────────────
+       Render: Préstamos
+    ───────────────────────────────────────── */
+    function calcProgress(loan) {
+      const paid  = loan.payments.filter(p => p.status === 'paid').length;
+      const total = loan.payments.length;
+      const pct   = Math.round((paid / total) * 100);
+      const next  = loan.payments.find(p => p.status === 'pending');
+      return { paid, total, pct, next };
+    }
+
+    /* ─── Orden por columna (clic en el encabezado) ─── */
+    function sortTh(label, key, sortState) {
+      const active = sortState.key === key;
+      const arrow  = active ? `<span class="sort-arrow">${sortState.dir === 1 ? '▲' : '▼'}</span>` : '';
+      const aria   = active ? (sortState.dir === 1 ? 'ascending' : 'descending') : 'none';
+      return `<th class="is-sortable" data-sort="${key}" aria-sort="${aria}" title="Ordenar por ${label.toLowerCase()}">${label}${arrow}</th>`;
+    }
+
+    function loanProgressPct(l) {
+      return l.payments.filter(p => p.status === 'paid').length / (l.payments.length || 1);
+    }
+
+    function loanNextDate(l) {
+      if (l.status !== 'active') return '';
+      const next = l.payments.find(p => p.status === 'pending');
+      return next ? next.date : '';
+    }
+
+    const LOAN_STATUS_ORDER = { active: 0, paid: 1, renewed: 2 };
+    const CLIENT_STATUS_ORDER = { current: 0, paid: 1, late: 2, defaulted: 3 };
+
+    const LOAN_SORTS = {
+      folio:    (a, b) => a.number - b.number,
+      weeks:    (a, b) => a.payments.filter(p => p.status === 'paid').length -
+                          b.payments.filter(p => p.status === 'paid').length,
+      client:   (a, b) => clientNameOf(a).localeCompare(clientNameOf(b), 'es'),
+      amount:   (a, b) => a.amount - b.amount,
+      progress: (a, b) => loanProgressPct(a) - loanProgressPct(b),
+      next:     (a, b) => {
+        const da = loanNextDate(a), db = loanNextDate(b);
+        if (!da && !db) return 0;
+        if (!da) return 1;    // sin próximo pago al final
+        if (!db) return -1;
+        return da < db ? -1 : da > db ? 1 : 0;
+      },
+      status:   (a, b) => (LOAN_STATUS_ORDER[a.status] ?? 9) - (LOAN_STATUS_ORDER[b.status] ?? 9)
+    };
+
+    const CLIENT_SORTS = {
+      name:   (a, b) => a.name.localeCompare(b.name, 'es'),
+      phone:  (a, b) => (a.phone || '').localeCompare(b.phone || '', 'es'),
+      loans:  (a, b) =>
+        loans.filter(l => l.clientId === a.id && l.status === 'active').length -
+        loans.filter(l => l.clientId === b.id && l.status === 'active').length ||
+        loans.filter(l => l.clientId === a.id).length -
+        loans.filter(l => l.clientId === b.id).length,
+      status: (a, b) => (CLIENT_STATUS_ORDER[clientStatus(a)] ?? 9) - (CLIENT_STATUS_ORDER[clientStatus(b)] ?? 9)
+    };
+
+    function sortLoans(list) {
+      const cmp = loanSort.key && LOAN_SORTS[loanSort.key];
+      if (!cmp) {
+        list.sort((a, b) => clientNameOf(a).localeCompare(clientNameOf(b), 'es') || a.number - b.number);
+        return;
+      }
+      list.sort((a, b) =>
+        cmp(a, b) * loanSort.dir ||
+        clientNameOf(a).localeCompare(clientNameOf(b), 'es') ||
+        a.number - b.number);
+    }
+
+    function sortClients(list) {
+      const cmp = clientSort.key && CLIENT_SORTS[clientSort.key];
+      if (!cmp) { list.sort((a, b) => a.name.localeCompare(b.name, 'es')); return; }
+      list.sort((a, b) => cmp(a, b) * clientSort.dir || a.name.localeCompare(b.name, 'es'));
+    }
+
+    function renderLoanList() {
+      const filterBox  = document.getElementById('loan-filters');
+      const container  = document.getElementById('loan-list-container');
+
+      if (loans.length === 0) {
+        filterBox.innerHTML = '';
+        container.innerHTML = emptyState(
+          '<rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+          'Sin préstamos aún',
+          'Presiona "Nuevo" para registrar el primer préstamo de tu cartera.'
+        );
+        return;
+      }
+
+      // Chips de filtro por estado
+      const counts = { all: loans.length, active: 0, paid: 0, renewed: 0 };
+      loans.forEach(l => { counts[l.status] = (counts[l.status] || 0) + 1; });
+      const filters = [
+        { key: 'all',    label: 'Todos'      },
+        { key: 'active', label: 'Activos'    },
+        { key: 'paid',   label: 'Liquidados' }
+      ];
+      filterBox.innerHTML = filters.map(f => `
+        <button class="chip ${loanFilter === f.key ? 'is-active' : ''}" data-filter="${f.key}">
+          ${f.label}<span class="chip-count">${counts[f.key]}</span>
+        </button>`).join('');
+      filterBox.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          loanFilter = chip.dataset.filter;
+          renderLoanList();
+        });
+      });
+
+      // Búsqueda por texto (cliente o folio)
+      const q = loanSearch.trim().toLowerCase();
+      const matchesSearch = l => !q ||
+        clientNameOf(l).toLowerCase().includes(q) ||
+        loanFolio(l).toLowerCase().includes(q) ||
+        String(l.number).includes(q);
+
+      // Lista filtrada; orden por columna activa o alfabético por defecto
+      const sorted = loans
+        .filter(l => (loanFilter === 'all' || l.status === loanFilter) && matchesSearch(l));
+      sortLoans(sorted);
+
+      if (sorted.length === 0) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-state__title">Nada por aquí</div><p class="empty-state__body">No hay préstamos con ese filtro o búsqueda.</p></div>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="table-tools">
+          <input class="form-input table-search" id="loan-search" type="text" placeholder="Buscar por cliente o folio…" value="${escHtml(loanSearch)}" autocomplete="off">
+        </div>
+        <div class="table-wrap">
+          <table class="loan-table">
+            <thead>
+              <tr>
+                ${sortTh('Folio', 'folio', loanSort)}
+                ${sortTh('Cliente', 'client', loanSort)}
+                ${sortTh('Monto', 'amount', loanSort)}
+                ${sortTh('Semanas', 'weeks', loanSort)}
+                ${sortTh('Progreso', 'progress', loanSort)}
+                <th>Situación</th>
+                ${sortTh('Próximo pago', 'next', loanSort)}
+                ${sortTh('Estado', 'status', loanSort)}
+              </tr>
+            </thead>
+            <tbody>${sorted.map(renderLoanRow).join('')}</tbody>
+          </table>
+        </div>`;
+
+      container.querySelectorAll('.loan-row').forEach(row => {
+        row.addEventListener('click', () => openLoanDetail(row.dataset.id));
+      });
+
+      // Ordenar al hacer clic en el encabezado
+      container.querySelectorAll('th.is-sortable').forEach(th => {
+        th.addEventListener('click', () => {
+          const key = th.dataset.sort;
+          if (loanSort.key === key) loanSort.dir *= -1;
+          else loanSort = { key, dir: 1 };
+          renderLoanList();
+        });
+      });
+
+      // Buscador (re-render conservando el foco y la posición del cursor)
+      const search = container.querySelector('#loan-search');
+      search.addEventListener('input', () => {
+        loanSearch = search.value;
+        const pos = search.selectionStart;
+        renderLoanList();
+        const again = document.getElementById('loan-search');
+        if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch {} }
+      });
+    }
+
+    function renderLoanRow(loan) {
+      const { paid, total, pct, next } = calcProgress(loan);
+      const cat      = loanCategory(loan);
+      const catMeta  = CATEGORY_META[cat];
+      const stMeta   = STATUS_META[loan.status] || STATUS_META.active;
+      const isWarn   = loan.status === 'active' && next && next.date < todayISO();
+      const progressClass = cat === 'defaulted' ? 'bad' : isWarn ? 'warn' : 'ok';
+
+      const nextCell = loan.status === 'active' && next
+        ? `<strong>${fmtCurrency(next.amount)}</strong> · ${fmtDate(next.date)}`
+        : loan.status === 'renewed'
+          ? `Renovado ${fmtDate(loan.renewedAt)}`
+          : '—';
+
+      return `
+        <tr class="loan-row" data-id="${loan.id}" tabindex="0" role="button" aria-label="Ver detalle de ${escHtml(clientNameOf(loan))}">
+          <td class="col-folio">${loanFolio(loan)}</td>
+          <td class="col-client">${escHtml(clientNameOf(loan))}</td>
+          <td class="col-amount">${fmtCurrency(loan.amount)}</td>
+          <td class="col-weeks">${paid}/${total}</td>
+          <td class="col-progress">
+            <div class="mini-progress">
+              <div class="mini-bar">
+                <div class="mini-bar__fill progress-bar__fill--${progressClass}" style="width:${pct}%"></div>
+              </div>
+              <span class="mini-pct">${pct}%</span>
+            </div>
+          </td>
+          <td>${loan.status === 'active'
+            ? `<span class="cat-badge cat-badge--${cat}">${catMeta.label}</span>`
+            : '<span style="color:var(--muted)">—</span>'}</td>
+          <td class="col-next">${nextCell}</td>
+          <td><span class="loan-card__status loan-card__status--${loan.status}">${stMeta.label}</span></td>
+        </tr>`;
+    }
+
+    /* ─────────────────────────────────────────
+       Render: Clientes
+    ───────────────────────────────────────── */
+    function renderClientList() {
+      const filterBox  = document.getElementById('client-filters');
+      const container  = document.getElementById('client-list-container');
+
+      if (clients.length === 0) {
+        filterBox.innerHTML = '';
+        container.innerHTML = emptyState(
+          '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+          'Sin clientes aún',
+          'Presiona "Nuevo" para registrar a tu primer cliente y empezar tu cartera.'
+        );
+        return;
+      }
+
+      // Chips de filtro por estado
+      const counts = { all: clients.length, current: 0, late: 0, defaulted: 0, paid: 0 };
+      clients.forEach(c => counts[clientStatus(c)]++);
+      const filters = [
+        { key: 'all',       label: 'Todos'      },
+        { key: 'current',   label: 'Al día'     },
+        { key: 'late',      label: 'Atrasados'  },
+        { key: 'defaulted', label: 'Morosos'    },
+        { key: 'paid',      label: 'Liquidados' }
+      ];
+      filterBox.innerHTML = filters.map(f => `
+        <button class="chip ${clientFilter === f.key ? 'is-active' : ''}" data-filter="${f.key}">
+          ${f.label}<span class="chip-count">${counts[f.key]}</span>
+        </button>`).join('');
+      filterBox.querySelectorAll('.chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+          clientFilter = chip.dataset.filter;
+          renderClientList();
+        });
+      });
+
+      // Búsqueda por texto (nombre, teléfono, dirección o aval)
+      const q = clientSearch.trim().toLowerCase();
+      const matchesSearch = c => !q ||
+        c.name.toLowerCase().includes(q) ||
+        (c.phone || '').toLowerCase().includes(q) ||
+        (c.address || '').toLowerCase().includes(q) ||
+        (c.aval && c.aval.name ? c.aval.name.toLowerCase().includes(q) : false);
+
+      // Lista filtrada; orden por columna activa o alfabético por defecto
+      const visible = clients
+        .filter(c => (clientFilter === 'all' || clientStatus(c) === clientFilter) && matchesSearch(c));
+      sortClients(visible);
+
+      if (visible.length === 0) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-state__title">Nada por aquí</div><p class="empty-state__body">No hay clientes con ese filtro o búsqueda.</p></div>`;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="table-tools">
+          <input class="form-input table-search" id="client-search" type="text" placeholder="Buscar por nombre, teléfono o dirección…" value="${escHtml(clientSearch)}" autocomplete="off">
+        </div>
+        <div class="table-wrap">
+          <table class="loan-table">
+            <thead>
+              <tr>
+                ${sortTh('Cliente', 'name', clientSort)}
+                ${sortTh('Teléfono', 'phone', clientSort)}
+                <th>Dirección</th>
+                <th>Aval</th>
+                ${sortTh('Préstamos', 'loans', clientSort)}
+                ${sortTh('Situación', 'status', clientSort)}
+              </tr>
+            </thead>
+            <tbody>${visible.map(renderClientRow).join('')}</tbody>
+          </table>
+        </div>`;
+
+      container.querySelectorAll('.client-row').forEach(row => {
+        row.addEventListener('click', () => openClientDetail(row.dataset.id));
+      });
+
+      // Ordenar al hacer clic en el encabezado
+      container.querySelectorAll('th.is-sortable').forEach(th => {
+        th.addEventListener('click', () => {
+          const key = th.dataset.sort;
+          if (clientSort.key === key) clientSort.dir *= -1;
+          else clientSort = { key, dir: 1 };
+          renderClientList();
+        });
+      });
+
+      // Buscador (re-render conservando el foco y la posición del cursor)
+      const search = container.querySelector('#client-search');
+      search.addEventListener('input', () => {
+        clientSearch = search.value;
+        const pos = search.selectionStart;
+        renderClientList();
+        const again = document.getElementById('client-search');
+        if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch {} }
+      });
+    }
+
+    function renderClientRow(client) {
+      const cat     = clientCategory(client.id);
+      const cLoans  = loans.filter(l => l.clientId === client.id);
+      const active  = cLoans.filter(l => l.status === 'active').length;
+      const avatar  = client.photo
+        ? `<img src="${client.photo}" alt="Foto de ${escHtml(client.name)}">`
+        : initials(client.name);
+
+      return `
+        <tr class="client-row" data-id="${client.id}" tabindex="0" role="button" aria-label="Ver perfil de ${escHtml(client.name)}">
+          <td>
+            <div class="client-cell">
+              <div class="sheet-avatar sheet-avatar--${cat}">${avatar}</div>
+              ${escHtml(client.name)}
+            </div>
+          </td>
+          <td class="col-phone">${client.phone ? escHtml(client.phone) : '—'}</td>
+          <td class="col-address">${client.address ? escHtml(client.address) : '—'}</td>
+          <td class="col-aval">${client.aval && client.aval.name ? escHtml(client.aval.name) : '—'}</td>
+          <td class="col-loans">${active} activo${active === 1 ? '' : 's'} · ${cLoans.length} total</td>
+          <td>${clientStatusBadge(client)}</td>
+        </tr>`;
+    }
+
+    /* ─────────────────────────────────────────
+       Render: Renovaciones (solo clientes liquidados)
+    ───────────────────────────────────────── */
+    function lastLoanOf(clientId) {
+      let last = null;
+      loans.forEach(l => {
+        if (l.clientId === clientId && (!last || l.number > last.number)) last = l;
+      });
+      return last;
+    }
+
+    function loanEndDate(loan) {
+      return loan && loan.payments && loan.payments.length
+        ? loan.payments[loan.payments.length - 1].date
+        : '';
+    }
+
+    const RENEWAL_SORTS = {
+      name:   (a, b) => a.name.localeCompare(b.name, 'es'),
+      phone:  (a, b) => (a.phone || '').localeCompare(b.phone || '', 'es'),
+      amount: (a, b) => (lastLoanOf(a.id) ? lastLoanOf(a.id).amount : 0) -
+                        (lastLoanOf(b.id) ? lastLoanOf(b.id).amount : 0),
+      ended:  (a, b) => loanEndDate(lastLoanOf(a.id)).localeCompare(loanEndDate(lastLoanOf(b.id))),
+      loans:  (a, b) => loans.filter(l => l.clientId === a.id).length -
+                        loans.filter(l => l.clientId === b.id).length
+    };
+
+    function sortRenewals(list) {
+      const cmp = renewalSort.key && RENEWAL_SORTS[renewalSort.key];
+      if (!cmp) { list.sort((a, b) => a.name.localeCompare(b.name, 'es')); return; }
+      list.sort((a, b) => cmp(a, b) * renewalSort.dir || a.name.localeCompare(b.name, 'es'));
+    }
+
+    async function renderRenewalList() {
+      const container = document.getElementById('renewal-list-container');
+
+      if (clients.length === 0) {
+        container.innerHTML = emptyState(
+          '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+          'Sin clientes aún',
+          'Registra clientes y préstamos para poder renovarlos aquí.'
+        );
+        return;
+      }
+
+      const paid = clients.filter(c => {
+         const st = clientStatus(c);
+         if (st === 'paid') return true;
+         const actLoans = loans.filter(l => l.clientId === c.id && l.status === 'active');
+         if (actLoans.length > 0) {
+            const hasPaid12 = actLoans.some(l => l.payments.filter(p => p.status === 'paid').length >= 12);
+            if (hasPaid12) return true;
+         }
+         return false;
+      });
+
+      const q = renewalSearch.trim().toLowerCase();
+      const matchesSearch = c => !q ||
+        c.name.toLowerCase().includes(q) ||
+        (c.phone || '').toLowerCase().includes(q);
+
+      const visible = paid.filter(matchesSearch);
+      sortRenewals(visible);
+
+      if (visible.length === 0) {
+        const msg = paid.length === 0
+          ? 'Aún no hay clientes liquidados. Cuando alguien termine de pagar su préstamo aparecerá aquí para renovárselo.'
+          : 'Ningún cliente liquidado coincide con la búsqueda.';
+        container.innerHTML = `<div class="empty-state"><div class="empty-state__title">Nada por renovar</div><p class="empty-state__body">${msg}</p></div>`;
+      } else {
+        container.innerHTML = `
+          <div class="table-tools">
+            <input class="form-input table-search" id="renewal-search" type="text" placeholder="Buscar por nombre o teléfono…" value="${escHtml(renewalSearch)}" autocomplete="off">
+          </div>
+          <div class="table-wrap">
+            <table class="loan-table">
+              <thead>
+                <tr>
+                  ${sortTh('Cliente', 'name', renewalSort)}
+                  <th>Clasificación</th>
+                  ${sortTh('Teléfono', 'phone', renewalSort)}
+                  ${sortTh('Último préstamo', 'amount', renewalSort)}
+                  ${sortTh('Terminó', 'ended', renewalSort)}
+                  ${sortTh('Préstamos', 'loans', renewalSort)}
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>${visible.map(renderRenewalRow).join('')}</tbody>
+            </table>
+          </div>`;
+
+        // Clic en la fila → renovar su último préstamo
+        container.querySelectorAll('.client-row').forEach(row => {
+          row.addEventListener('click', () => {
+            if (row.dataset.loan) openLoanForm({ renewOf: row.dataset.loan });
+          });
+        });
+
+        const search = container.querySelector('#renewal-search');
+        search.addEventListener('input', () => {
+          renewalSearch = search.value;
+          const pos = search.selectionStart;
+          renderRenewalList();
+          const again = document.getElementById('renewal-search');
+          if (again) { again.focus(); try { again.setSelectionRange(pos, pos); } catch {} }
+        });
+      }
+      
+      renderAdditionalCreditsList();
+      renderMultipleLoansList();
+      renderIssuedLoans();
+      await renderLoansSummaryTable();
+    }
+
+    /* ─────────────────────────────────────────
+       Render: Tabla Resumen de Préstamos Otorgados
+    ───────────────────────────────────────── */
+    /* Helpers para calcular rangos de fecha */
+
+    /** Devuelve el lunes de la semana actual (ISO string) */
+    function currentMondayISO() {
+      const today = new Date();
+      const day = today.getDay();
+      const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+      const mon = new Date(today);
+      mon.setDate(diff);
+      return mon.toISOString().split('T')[0];
+    }
+
+    /** Devuelve YYYY-MM del mes actual */
+    function currentMonthISO() {
+      const today = new Date();
+      return `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+    }
+
+    function getSummaryDateRange() {
+      if (summaryFilter === 'week') {
+        // Usar la semana seleccionada o la actual
+        const monStr = summaryWeekDate || currentMondayISO();
+        const mon = new Date(monStr + 'T00:00:00');
+        const sun = new Date(mon);
+        sun.setDate(mon.getDate() + 6);
+        return { from: monStr, to: sun.toISOString().split('T')[0] };
+      }
+      if (summaryFilter === 'month') {
+        const ym = summaryMonthDate || currentMonthISO();
+        const [y, m] = ym.split('-').map(Number);
+        const lastDay = new Date(y, m, 0).getDate();
+        return { from: `${ym}-01`, to: `${ym}-${String(lastDay).padStart(2, '0')}` };
+      }
+      return { from: '', to: '' }; // 'all'
+    }
+
+    async function renderLoansSummaryTable() {
+      const container = document.getElementById('loans-summary-container');
+      if (!container) return;
+
+      const FILTERS = [
+        { key: 'week',  label: 'Semana' },
+        { key: 'month', label: 'Mes'    },
+        { key: 'all',   label: 'Todos'  }
+      ];
+
+      function filterBarHtml(loading = false) {
+        const chips = FILTERS.map(f =>
+          `<button class="filter-chip ${summaryFilter === f.key ? 'is-active' : ''}" data-sf="${f.key}">${f.label}</button>`
+        ).join('');
+
+        // Selector de semana: input tipo date que salta automáticamente al lunes más cercano
+        let datePickerHtml = '';
+        if (summaryFilter === 'week') {
+          const val = summaryWeekDate || currentMondayISO();
+          datePickerHtml = `<input type="date" id="summary-week-picker" class="date-filter-input" value="${val}" title="Selecciona cualquier día de la semana (se ajustará al lunes)" style="margin-left:8px">`;
+        } else if (summaryFilter === 'month') {
+          const val = summaryMonthDate || currentMonthISO();
+          datePickerHtml = `<input type="month" id="summary-month-picker" class="date-filter-input" value="${val}" title="Selecciona el mes" style="margin-left:8px">`;
+        }
+
+        const badge = loading
+          ? `<span style="margin-left:auto;font-size:0.8125rem;color:var(--muted)">Cargando…</span>`
+          : '';
+        return `<div class="summary-filter-row"><span class="summary-filter-label">📅 Periodo:</span>${chips}${datePickerHtml}${badge}</div>`;
+      }
+
+      function bindChips() {
+        container.querySelectorAll('.filter-chip[data-sf]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            summaryFilter = btn.dataset.sf;
+            // Al cambiar de filtro, resetear la fecha seleccionada
+            summaryWeekDate = '';
+            summaryMonthDate = '';
+            renderLoansSummaryTable();
+          });
+        });
+
+        // Selector de semana
+        const weekPicker = container.querySelector('#summary-week-picker');
+        if (weekPicker) {
+          weekPicker.addEventListener('change', () => {
+            if (!weekPicker.value) return;
+            // Ajustar al lunes de la semana del día elegido
+            const d = new Date(weekPicker.value + 'T00:00:00');
+            const day = d.getDay();
+            const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+            d.setDate(diff);
+            summaryWeekDate = d.toISOString().split('T')[0];
+            renderLoansSummaryTable();
+          });
+        }
+
+        // Selector de mes
+        const monthPicker = container.querySelector('#summary-month-picker');
+        if (monthPicker) {
+          monthPicker.addEventListener('change', () => {
+            if (!monthPicker.value) return;
+            summaryMonthDate = monthPicker.value;
+            renderLoansSummaryTable();
+          });
+        }
+      }
+
+      container.innerHTML = filterBarHtml();
+      bindChips();
+
+      try {
+        const { from, to } = getSummaryDateRange();
+
+        // Obtener préstamos activos ordenados por fecha descendente
+        const allActiveLoans = loans
+          .filter(l => l.status === 'active')
+          .sort((a, b) => b.startDate.localeCompare(a.startDate));
+
+        // Identificar líneas adicionales (segundos préstamos activos)
+        const activeByClient = {};
+        allActiveLoans.forEach(l => {
+          if (!activeByClient[l.clientId]) activeByClient[l.clientId] = [];
+          activeByClient[l.clientId].push(l);
+        });
+
+        const additionalLoanIds = new Set();
+        Object.values(activeByClient).forEach(clientLoans => {
+          if (clientLoans.length < 2) return;
+          const sorted = [...clientLoans].sort((a, b) => b.startDate.localeCompare(a.startDate));
+          const additional = sorted.find(l => !l.previousLoanId);
+          if (additional) additionalLoanIds.add(additional.id);
+        });
+
+        function inRange(loan) {
+          if (!from) return true; // 'all'
+          return loan.startDate >= from && loan.startDate <= to;
+        }
+
+        const summaryLoans = allActiveLoans.filter(l =>
+          (l.previousLoanId || additionalLoanIds.has(l.id)) && inRange(l)
+        );
+
+        function getDiscount(loan) {
+          if (!loan.previousLoanId) return 0;
+          const prev = loanById(loan.previousLoanId);
+          if (!prev) return 0;
+          const renewDate = loan.startDate;
+          const forced = prev.payments.filter(p =>
+            p.status === 'paid' && p.paidAt && p.paidAt.slice(0, 10) >= renewDate
+          );
+          return forced.reduce((s, p) => s + p.amount, 0);
+        }
+
+        const rows = summaryLoans.map(loan => {
+          const clientName   = clientNameOf(loan);
+          const isRenewal    = !!loan.previousLoanId;
+          const discount     = getDiscount(loan);
+          const delivered    = Math.max(0, loan.amount - discount);
+          const badge = isRenewal
+            ? `<span class="badge-renewed">Préstamo Renovado</span>`
+            : `<span class="badge-additional">Crédito Adicional</span>`;
+          return {
+            loan, discount, delivered,
+            html: `
+              <tr class="loan-row" data-id="${loan.id}" tabindex="0" role="button" aria-label="Ver detalle de ${escHtml(clientName)}">
+                <td>${badge}</td>
+                <td class="col-client">${escHtml(clientName)}</td>
+                <td>${fmtDate(loan.startDate)}</td>
+                <td class="col-amount">${fmtCurrency(loan.amount)}</td>
+                <td class="col-discount">${discount > 0 ? fmtCurrency(discount) : '—'}</td>
+                <td class="col-delivered">${fmtCurrency(delivered)}</td>
+              </tr>`
+          };
+        });
+
+        const totalInitial   = rows.reduce((s, r) => s + r.loan.amount, 0);
+        const totalDiscount  = rows.reduce((s, r) => s + r.discount, 0);
+        const totalDelivered = rows.reduce((s, r) => s + r.delivered, 0);
+        const filterLabel    = FILTERS.find(f => f.key === summaryFilter)?.label || '';
+
+        container.innerHTML = filterBarHtml() + `
+          <div style="margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.8125rem;color:var(--primary);font-weight:600">${rows.length} registro${rows.length !== 1 ? 's' : ''}</span>
+            <span style="font-size:0.8125rem;color:var(--muted)">— ${filterLabel}${from ? ` · ${fmtDate(from)}${to && to !== from ? ' al ' + fmtDate(to) : ''}` : ''}</span>
+          </div>
+          ${rows.length === 0
+            ? `<div class="empty-state"><div class="empty-state__title">Sin registros</div><p class="empty-state__body">No hay renovaciones ni créditos adicionales para el periodo seleccionado.</p></div>`
+            : `<div class="table-wrap">
+                <table class="loan-table" style="min-width:700px">
+                  <thead>
+                    <tr>
+                      <th>Clasificación</th>
+                      <th>Nombre del Cliente</th>
+                      <th>Fecha Inicio</th>
+                      <th>Préstamo Inicial</th>
+                      <th>Descuento</th>
+                      <th>Préstamo Entregado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${rows.map(r => r.html).join('')}
+                    <tr class="summary-table-totals">
+                      <td colspan="3" style="text-align:right;color:var(--muted);font-size:0.8125rem;font-weight:600">TOTALES</td>
+                      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--primary)">${fmtCurrency(totalInitial)}</td>
+                      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--error)">${totalDiscount > 0 ? fmtCurrency(totalDiscount) : '—'}</td>
+                      <td style="font-family:'JetBrains Mono',monospace;font-weight:700;color:var(--success)">${fmtCurrency(totalDelivered)}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>`
+          }`;
+
+        bindChips();
+        container.querySelectorAll('.loan-row').forEach(row => {
+          row.addEventListener('click', () => openLoanDetail(row.dataset.id));
+        });
+
+      } catch (err) {
+        console.error('Error cargando resumen:', err);
+        container.innerHTML = filterBarHtml() +
+          `<div class="empty-state">
+            <div class="empty-state__title">Error al cargar datos</div>
+            <p class="empty-state__body">No se pudo cargar el resumen de préstamos.</p>
+          </div>`;
+        bindChips();
+      }
+    }
+
+    function renderAdditionalCreditsList() {
+      const container = document.getElementById('additional-loans-container');
+      
+      const oneActive = clients.filter(c => {
+         const actLoans = loans.filter(l => l.clientId === c.id && l.status === 'active');
+         if (actLoans.length !== 1) return false;
+         if (clientCategory(c.id) === 'defaulted') return false; // Excluir morosos
+         return true;
+      });
+      
+      if (oneActive.length === 0) {
+         container.innerHTML = emptyState('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>', 'Sin candidatos', 'No hay clientes con 1 crédito activo.');
+         return;
+      }
+
+      const rows = oneActive.map(c => {
+          const act = loans.find(l => l.clientId === c.id && l.status === 'active');
+          const avatar = c.photo ? `<img src="${c.photo}" alt="Foto">` : initials(c.name);
+          return `
+            <tr class="client-row" tabindex="0" role="button" aria-label="Dar crédito adicional a ${escHtml(c.name)}">
+              <td>
+                <div class="client-cell">
+                  <div class="sheet-avatar">${avatar}</div>
+                  ${escHtml(c.name)}
+                </div>
+              </td>
+              <td class="cat-cell">${clientStatusBadge(c)}</td>
+              <td class="col-amount">${fmtCurrency(act.amount)}</td>
+              <td class="col-next">${fmtDate(act.startDate)}</td>
+              <td><button class="btn btn-primary" style="padding:6px 14px;font-size:0.8125rem" onclick="event.stopPropagation(); openLoanForm({ clientId: '${c.id}' })">Añadir Crédito</button></td>
+            </tr>`;
+      }).join('');
+      
+      container.innerHTML = `
+        <div class="table-wrap">
+          <table class="loan-table" style="min-width:640px">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Clasificación</th>
+                <th>Préstamo Activo (Monto)</th>
+                <th>Fecha Inicio</th>
+                <th>Acción</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderMultipleLoansList() {
+      const container = document.getElementById('multiple-loans-container');
+      
+      const multipleActive = clients.filter(c => {
+         const actLoans = loans.filter(l => l.clientId === c.id && l.status === 'active');
+         return actLoans.length >= 2;
+      });
+      
+      if (multipleActive.length === 0) {
+         container.innerHTML = emptyState('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>', 'Sin clientes', 'No hay clientes que tengan un préstamo adicional actualmente.');
+         return;
+      }
+
+      const rows = multipleActive.map(c => {
+          const actLoans = loans.filter(l => l.clientId === c.id && l.status === 'active');
+          const avatar = c.photo ? `<img src="${c.photo}" alt="Foto">` : initials(c.name);
+          return `
+            <tr class="client-row" tabindex="0" role="button" aria-label="Ver perfil de ${escHtml(c.name)}" onclick="openClientDetail('${c.id}')">
+              <td>
+                <div class="client-cell">
+                  <div class="sheet-avatar">${avatar}</div>
+                  ${escHtml(c.name)}
+                </div>
+              </td>
+              <td class="cat-cell">${clientStatusBadge(c)}</td>
+              <td class="col-loans" style="font-weight: 500">${actLoans.length} activos</td>
+              <td class="col-amount">${actLoans.map(l => fmtCurrency(l.amount)).join(' + ')}</td>
+            </tr>`;
+      }).join('');
+      
+      container.innerHTML = `
+        <div class="table-wrap">
+          <table class="loan-table" style="min-width:640px">
+            <thead>
+              <tr>
+                <th>Cliente</th>
+                <th>Clasificación</th>
+                <th>Préstamos Activos</th>
+                <th>Montos Paralelos</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+    }
+
+    function renderIssuedLoans() {
+      const container = document.getElementById('issued-loans-container');
+
+      // Solo mostrar préstamos que sean verdaderamente "líneas nuevas":
+      //   - Sin previousLoanId (no es una renovación en sí misma)
+      //   - El cliente NO tiene 2+ préstamos activos (no hay crédito adicional)
+      //   - El cliente NO tiene ninguna renovación activa (ningún otro préstamo activo con previousLoanId)
+      const newLines = loans.filter(l => {
+        if (l.previousLoanId) return false; // Es una renovación, no una línea nueva
+        const clientActiveLoans = loans.filter(cl => cl.clientId === l.clientId && cl.status === 'active');
+        if (clientActiveLoans.length >= 2) return false; // Ya tiene crédito adicional
+        const hasActiveRenewal = loans.some(cl =>
+          cl.clientId === l.clientId && !!cl.previousLoanId && cl.status === 'active'
+        );
+        if (hasActiveRenewal) return false; // Ya tiene una renovación activa
+        return true;
+      });
+      
+      if (newLines.length === 0) {
+         container.innerHTML = emptyState('<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>', 'Sin créditos nuevos', 'No hay créditos nuevos (primera vez) emitidos aún.');
+         return;
+      }
+      
+      const sorted = newLines.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+      
+      const rows = sorted.map(l => {
+          return `
+            <tr class="loan-row" data-id="${l.id}" tabindex="0" role="button" aria-label="Ver detalle de ${escHtml(clientNameOf(l))}">
+              <td class="col-folio">${loanFolio(l)}</td>
+              <td class="col-client">${escHtml(clientNameOf(l))}</td>
+              <td class="col-amount">${fmtCurrency(l.amount)}</td>
+              <td>${fmtDate(l.startDate)}</td>
+              <td><span class="loan-card__status loan-card__status--${l.status}">${(STATUS_META[l.status] || STATUS_META.active).label}</span></td>
+            </tr>`;
+      }).join('');
+      
+      container.innerHTML = `
+        <div class="table-wrap">
+          <table class="loan-table" style="min-width:640px">
+            <thead>
+              <tr>
+                <th>Folio</th>
+                <th>Cliente</th>
+                <th>Monto</th>
+                <th>Fecha Inicio</th>
+                <th>Estado</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>
+      `;
+      
+      container.querySelectorAll('.loan-row').forEach(row => {
+        row.addEventListener('click', () => openLoanDetail(row.dataset.id));
+      });
+    }
+
+    function renderRenewalRow(client) {
+      const last   = lastLoanOf(client.id);
+      const total  = loans.filter(l => l.clientId === client.id).length;
+      const avatar = client.photo
+        ? `<img src="${client.photo}" alt="Foto de ${escHtml(client.name)}">`
+        : initials(client.name);
+
+      return `
+        <tr class="client-row" data-loan="${last ? last.id : ''}" tabindex="0" role="button" aria-label="Renovar préstamo de ${escHtml(client.name)}">
+          <td>
+            <div class="client-cell">
+              <div class="sheet-avatar">${avatar}</div>
+              ${escHtml(client.name)}
+            </div>
+          </td>
+          <td class="cat-cell">${clientStatusBadge(client)}</td>
+          <td class="col-phone">${client.phone ? escHtml(client.phone) : '—'}</td>
+          <td class="col-amount">${last ? `${loanFolio(last)} · ${fmtCurrency(last.amount)}` : '—'}</td>
+          <td class="col-next">${last ? fmtDate(loanEndDate(last)) : '—'}</td>
+          <td class="col-loans">${total}</td>
+          <td><span class="btn btn-primary" style="padding:6px 14px;font-size:0.8125rem">Renovar</span></td>
+        </tr>`;
+    }
+
+    /* ─────────────────────────────────────────
+       Empty state helper
+    ───────────────────────────────────────── */
+    function emptyState(iconPaths, title, body) {
+      return `
+        <div class="empty-state">
+          <div class="empty-state__icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="var(--border)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${iconPaths}</svg>
+          </div>
+          <div class="empty-state__title">${title}</div>
+          <p class="empty-state__body">${body}</p>
+        </div>`;
+    }
+
+    /* ─────────────────────────────────────────
+       Detalle de préstamo
+    ───────────────────────────────────────── */
+    function openLoanDetail(id) {
+      const loan = loanById(id);
+      if (!loan) return;
+
+      const { paid, total, pct } = calcProgress(loan);
+      const cat       = loanCategory(loan);
+      const catMeta   = CATEGORY_META[cat];
+      const stMeta    = STATUS_META[loan.status] || STATUS_META.active;
+      const client    = getClient(loan.clientId);
+      const prevLoan  = loan.previousLoanId ? loanById(loan.previousLoanId) : null;
+
+      const rows = loan.payments.map(p => {
+        const overdue = loan.status === 'active' && p.status === 'pending' && p.date < todayISO();
+        if (loan.status === 'active' && p.status === 'pending') {
+          return `
+            <tr${overdue ? ' class="is-overdue"' : ''}>
+              <td class="col-week">Sem. ${p.week}</td>
+              <td class="col-date">${fmtDate(p.date)}</td>
+              <td class="col-amount">${fmtCurrency(p.amount)}</td>
+              <td class="col-status">
+                <button class="pay-btn" data-loan="${loan.id}" data-week="${p.week}" title="Marcar pagado" aria-label="Marcar pagado">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                    <polyline points="20 6 9 17 4 12"/>
+                  </svg>
+                </button>
+              </td>
+            </tr>`;
+        }
+        return `
+          <tr>
+            <td class="col-week">Sem. ${p.week}</td>
+            <td class="col-date">${fmtDate(p.date)}</td>
+            <td class="col-amount">${fmtCurrency(p.amount)}</td>
+            <td class="col-status">
+              <button class="pay-btn is-paid" disabled aria-label="Pagado">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </button>
+            </td>
+          </tr>`;
+      }).join('');
+
+      const badgeFor = (status, cat) => {
+        const sm = STATUS_META[status] || STATUS_META.active;
+        return `<span class="loan-card__status loan-card__status--${status}">${sm.label}</span>` +
+               (status === 'active' ? `<span class="cat-badge cat-badge--${cat}">${CATEGORY_META[cat].label}</span>` : '');
+      };
+
+      const actions = [];
+      if (loan.status === 'active') {
+        actions.push(`<button class="btn btn-danger" id="btn-delete-loan" data-id="${loan.id}">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" style="vertical-align:middle;margin-right:4px">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>Eliminar</button>`);
+      }
+      if (loan.status === 'paid') {
+        actions.push(`<button class="btn btn-primary" id="btn-renew-loan" data-id="${loan.id}">Renovar</button>`);
+      }
+
+      document.getElementById('loan-detail-content').innerHTML = `
+        <div class="detail-section">
+          <div class="detail-grid">
+            <div>
+              <div class="detail-field__label">Cliente</div>
+              <div class="detail-field__value">${escHtml(clientNameOf(loan))}</div>
+            </div>
+            <div>
+              <div class="detail-field__label">Monto</div>
+              <div class="detail-field__value mono">${fmtCurrency(loan.amount)}</div>
+            </div>
+            <div>
+              <div class="detail-field__label">Folio</div>
+              <div class="detail-field__value mono">${loanFolio(loan)}</div>
+            </div>
+            <div>
+              <div class="detail-field__label">Inicio</div>
+              <div class="detail-field__value">${fmtDate(loan.startDate)}</div>
+            </div>
+            <div>
+              <div class="detail-field__label">Termina</div>
+              <div class="detail-field__value">${fmtDate(loan.payments[loan.payments.length - 1].date)}</div>
+            </div>
+            <div>
+              <div class="detail-field__label">Progreso</div>
+              <div class="detail-field__value">${paid}/${total} semanas (${pct}%)</div>
+            </div>
+            <div>
+              <div class="detail-field__label">Estatus</div>
+              <div>${badgeFor(loan.status, cat)}</div>
+            </div>
+            ${catMeta && loan.status === 'active' ? `
+            <div>
+              <div class="detail-field__label">Situación</div>
+              <div class="detail-field__value">${catMeta.label}</div>
+            </div>` : ''}
+            ${prevLoan ? `
+            <div>
+              <div class="detail-field__label">Renueva a</div>
+              <div class="detail-field__value mono">${loanFolio(prevLoan)}</div>
+            </div>` : ''}
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="section-header" style="margin-bottom:10px">
+            <span class="section-title">Calendario de pagos</span>
+            <div class="section-line"></div>
+          </div>
+          <div style="overflow-x:auto">
+            <table class="payment-table">
+              <thead>
+                <tr>
+                  <th>Semana</th>
+                  <th>Fecha</th>
+                  <th>Monto</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="btn-group" style="margin-top:8px">
+          ${actions.join('')}
+        </div>`;
+
+      // Marcar pagos
+      document.querySelectorAll('.pay-btn[data-loan]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.stopPropagation();
+          markPayment(btn.dataset.loan, parseInt(btn.dataset.week));
+        });
+      });
+
+      // Renovar
+      const renewBtn = document.getElementById('btn-renew-loan');
+      if (renewBtn) renewBtn.addEventListener('click', () => {
+        closeModal('modal-loan-detail');
+        setTimeout(() => openLoanForm({ renewOf: renewBtn.dataset.id }), 300);
+      });
+
+      // Eliminar
+      const deleteBtn = document.getElementById('btn-delete-loan');
+      if (deleteBtn) deleteBtn.addEventListener('click', () => {
+        deleteTarget = { type: 'loan', id: deleteBtn.dataset.id };
+        closeModal('modal-loan-detail');
+        setTimeout(() => openConfirm('Eliminar préstamo', '¿Seguro que quieres eliminar este préstamo?<br>Esta acción no se puede deshacer.'), 300);
+      });
+
+      openModal('modal-loan-detail');
+    }
+
+    /* ─────────────────────────────────────────
+       Detalle de cliente
+    ───────────────────────────────────────── */
+    function openClientDetail(id) {
+      const client = clients.find(c => c.id === id);
+      if (!client) return;
+
+      const cat     = clientCategory(id);
+      const cLoans  = loans
+        .filter(l => l.clientId === id)
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+      const history = cLoans.length === 0
+        ? `<div class="empty-state" style="padding:32px 16px">
+             <div class="empty-state__title" style="margin-bottom:4px">Sin préstamos</div>
+             <p class="empty-state__body" style="max-width:none">Este cliente aún no tiene préstamos registrados.</p>
+           </div>`
+        : `<div class="history-list">${cLoans.map(l => {
+            const { paid, total } = calcProgress(l);
+            const lCat = loanCategory(l);
+            return `
+              <div class="history-item" data-id="${l.id}" tabindex="0" role="button" aria-label="Ver préstamo ${loanFolio(l)}">
+                <span class="history-item__num">${loanFolio(l)}</span>
+                <div class="history-item__body">
+                  <div class="history-item__amount">${fmtCurrency(l.amount)}</div>
+                  <div class="history-item__meta">${paid}/${total} semanas · ${fmtDate(l.startDate)}</div>
+                </div>
+                <div style="display:flex;gap:6px;flex-direction:column;align-items:flex-end">
+                  <span class="loan-card__status loan-card__status--${l.status}">${(STATUS_META[l.status] || STATUS_META.active).label}</span>
+                  ${l.status === 'active' ? `<span class="cat-badge cat-badge--${lCat}">${CATEGORY_META[lCat].label}</span>` : ''}
+                </div>
+              </div>`;
+          }).join('')}</div>`;
+
+      const canDelete = !loans.some(l => l.clientId === id && l.status === 'active');
+      const hasActive = hasActiveLoan(id);
+
+      const personBlock = (label, p, emptyText) => {
+        const has = p && (p.name || p.phone || p.address);
+        return `
+        <div style="grid-column:1 / -1">
+          <div class="detail-field__label">${label}</div>
+          ${has ? `
+          <div class="detail-field__value">
+            ${p.name ? escHtml(p.name) : '<span class="detail-field__value--empty">Sin nombre</span>'}
+            ${p.phone ? `<span style="color:var(--muted);font-family:'DM Mono',monospace"> · ${escHtml(p.phone)}</span>` : ''}
+            ${p.address ? `<span style="color:var(--muted)"> · ${escHtml(p.address)}</span>` : ''}
+          </div>` : `<div class="detail-field__value detail-field__value--empty">${emptyText}</div>`}
+        </div>`;
+      };
+
+      document.getElementById('client-detail-content').innerHTML = `
+        <div class="client-detail-head">
+          <div class="avatar avatar--${cat}">${client.photo ? `<img src="${client.photo}" alt="Foto de ${escHtml(client.name)}">` : initials(client.name)}</div>
+          <div>
+            <div class="client-detail-head__name">${escHtml(client.name)}</div>
+            <div class="client-detail-head__phone">${client.phone ? escHtml(client.phone) : 'Sin teléfono'}</div>
+          </div>
+          <div style="margin-left:auto">
+            ${clientStatusBadge(client)}
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="detail-grid">
+            <div>
+              <div class="detail-field__label">Teléfono</div>
+              <div class="detail-field__value ${client.phone ? '' : 'detail-field__value--empty'}">${client.phone ? escHtml(client.phone) : '—'}</div>
+            </div>
+            <div style="grid-column:1 / -1">
+              <div class="detail-field__label">Dirección</div>
+              <div class="detail-field__value ${client.address ? '' : 'detail-field__value--empty'}">${client.address ? escHtml(client.address) : '—'}</div>
+            </div>
+            ${personBlock('Aval', client.aval, 'Sin aval registrado')}
+            ${personBlock('Referencia 1', client.referencia, 'Sin referencia 1 registrada')}
+            ${personBlock('Referencia 2', client.referencia2, 'Sin referencia 2 registrada')}
+            ${personBlock('Referencia 3', client.referencia3, 'Sin referencia 3 registrada')}
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="section-header" style="margin-bottom:10px">
+            <span class="section-title">Fotos</span>
+            <div class="section-line"></div>
+          </div>
+          <div class="detail-photos">
+            <div>
+              ${client.photo
+                ? `<img class="detail-thumb" src="${client.photo}" data-photo="1" alt="Foto del cliente">`
+                : `<div class="detail-thumb detail-thumb--empty">
+                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                     <span>Sin foto</span>
+                   </div>`}
+              <div class="photo-slot__label">Foto del cliente</div>
+            </div>
+            <div>
+              ${client.lightBill
+                ? `<img class="detail-thumb" src="${client.lightBill}" data-photo="1" alt="Recibo de luz">`
+                : `<div class="detail-thumb detail-thumb--empty">
+                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+                     <span>Sin recibo</span>
+                   </div>`}
+              <div class="photo-slot__label">Recibo de luz</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-section">
+          <div class="section-header" style="margin-bottom:10px">
+            <span class="section-title">Historial de préstamos</span>
+            <div class="section-line"></div>
+          </div>
+          ${history}
+        </div>
+
+        <div class="btn-group" style="margin-top:8px">
+          <button class="btn btn-ghost" id="btn-edit-client" data-id="${client.id}">Editar</button>
+          <button class="btn btn-danger" id="btn-delete-client" data-id="${client.id}" ${canDelete ? '' : 'disabled title="Tiene préstamos activos"'}>Eliminar</button>
+          <button class="btn btn-primary" id="btn-new-loan-for-client" data-id="${client.id}" ${hasActive ? 'disabled title="Límite de préstamos activos (2) alcanzado"' : ''}>Nuevo préstamo</button>
+        </div>`;
+
+      // Click en préstamo del historial
+      document.querySelectorAll('#client-detail-content .history-item').forEach(item => {
+        item.addEventListener('click', () => {
+          closeModal('modal-client-detail');
+          setTimeout(() => openLoanDetail(item.dataset.id), 300);
+        });
+      });
+
+      // Ampliar fotos
+      document.querySelectorAll('#client-detail-content .detail-thumb[data-photo]').forEach(img => {
+        img.addEventListener('click', () => openLightbox(img.src));
+      });
+
+      // Nuevo préstamo para este cliente
+      const newLoanBtn = document.getElementById('btn-new-loan-for-client');
+      if (newLoanBtn) newLoanBtn.addEventListener('click', () => {
+        if (newLoanBtn.disabled) return;
+        closeModal('modal-client-detail');
+        setTimeout(() => openLoanForm({ clientId: newLoanBtn.dataset.id }), 300);
+      });
+
+      // Editar cliente
+      const editClientBtn = document.getElementById('btn-edit-client');
+      if (editClientBtn) editClientBtn.addEventListener('click', () => {
+        closeModal('modal-client-detail');
+        setTimeout(() => openClientForm(editClientBtn.dataset.id), 300);
+      });
+
+      // Eliminar cliente
+      const deleteClientBtn = document.getElementById('btn-delete-client');
+      if (deleteClientBtn) deleteClientBtn.addEventListener('click', () => {
+        if (deleteClientBtn.disabled) return;
+        deleteTarget = { type: 'client', id: deleteClientBtn.dataset.id };
+        closeModal('modal-client-detail');
+        setTimeout(() => openConfirm('Eliminar cliente', '¿Seguro que quieres eliminar este cliente?<br>Su historial de préstamos se conservará sin nombre.<br>Esta acción no se puede deshacer.'), 300);
+      });
+
+      openModal('modal-client-detail');
+    }
+
+    /* ─────────────────────────────────────────
+       Acciones de préstamo
+    ───────────────────────────────────────── */
+    async function markPayment(loanId, week) {
+      const loader = document.getElementById('global-loader');
+      if (loader) loader.classList.remove('hidden');
+      try {
+        const loan = loanById(loanId);
+        if (!loan) return;
+        const payment = loan.payments.find(p => p.week === week);
+        if (!payment || payment.status === 'paid') return;
+        
+        payment.status = 'paid';
+        payment.paidAt = new Date().toISOString();
+        recomputeStatus(loan);
+        
+        await supabaseClient.from('payments').update({ status: 'paid', paid_at: payment.paidAt }).eq('id', payment.id);
+        if (loan.status === 'paid') {
+           await supabaseClient.from('loans').update({ status: 'paid' }).eq('id', loan.id);
+        }
+        
+        openLoanDetail(loanId);
+        refreshAll();
+        showToast(`Pago de ${fmtCurrency(payment.amount)} registrado`, 'success');
+      } catch(err) {
+        console.error(err);
+        showToast('Error registrando pago', 'error');
+      } finally {
+        if (loader) loader.classList.add('hidden');
+      }
+    }
+
+    /* ─────────────────────────────────────────
+       Formulario de préstamo
+    ───────────────────────────────────────── */
+    function fillClientSelect(selectedId, locked, query = '') {
+      const select = document.getElementById('form-client');
+      const q = query.trim().toLowerCase();
+      let list = [...clients].sort((a, b) => a.name.localeCompare(b.name, 'es'));
+      if (q) list = list.filter(c => c.name.toLowerCase().includes(q));
+
+      select.innerHTML = '<option value="">— Selecciona un cliente —</option>' +
+        list.map(c => {
+          const busy = hasActiveLoan(c.id);
+          const label = busy ? `${c.name} — límite de préstamos alcanzado` : c.name;
+          return `<option value="${c.id}" ${c.id === selectedId ? 'selected' : ''} ${busy && !locked ? 'disabled' : ''}>${escHtml(label)}</option>`;
+        }).join('');
+
+      // Si el cliente seleccionado no coincide con la búsqueda, no lo perdemos
+      if (selectedId && !list.some(c => c.id === selectedId)) {
+        const c = getClient(selectedId);
+        if (c) select.add(new Option(c.name, c.id, true, true));
+      }
+      if (list.length === 0 && !selectedId) {
+        select.add(new Option('— Sin coincidencias —', '', false, false));
+        select.lastChild.disabled = true;
+      }
+
+      select.disabled = !!locked;
+      document.getElementById('form-client-search').hidden = !!locked || clients.length === 0;
+    }
+
+    function openLoanForm(opts = {}) {
+      renewOfId = null;
+      const form = document.getElementById('loan-form');
+      form.reset();
+
+      const note     = document.getElementById('loan-form-note');
+      const title    = document.getElementById('modal-loan-form-title');
+      const submit   = document.getElementById('btn-submit-loan-form');
+      const select   = document.getElementById('form-client');
+
+      if (opts.renewOf) {
+        // ── Renovación ──
+        const prev = loanById(opts.renewOf);
+        if (!prev) return;
+        renewOfId = prev.id;
+        title.textContent  = 'Renovar préstamo';
+        submit.textContent = 'Crear renovación';
+
+        const pendingAmount = prev.payments.filter(p => p.status === 'pending').reduce((s, p) => s + p.amount, 0);
+        let deductionHtml = "";
+        if (pendingAmount > 0) {
+            currentPendingDeduction = pendingAmount;
+            deductionHtml = `<br><div style="background:#FEF2F2; color:#DC2626; padding:10px; border-radius:4px; margin-top:8px; font-size:14px;"><strong>Descuento por saldo pendiente:</strong> ${fmtCurrency(pendingAmount)}.<br>Entregarás la cantidad solicitada menos este adeudo (se indicará al colocar el monto).</div>`;
+        } else {
+            currentPendingDeduction = 0;
+        }
+
+        note.hidden = false;
+        note.innerHTML = `Renovación de <strong>${loanFolio(prev)}</strong> (${escHtml(clientNameOf(prev))}) · ${fmtCurrency(prev.amount)}.<br>El préstamo anterior quedará marcado como <strong>Renovado</strong>.${deductionHtml}`;
+        fillClientSelect(prev.clientId, true);
+        document.getElementById('form-amount').value = prev.amount;
+        document.getElementById('form-date').value   = todayOrMondayISO();
+      } else {
+        currentPendingDeduction = 0;
+        // ── Nuevo ──
+        if (opts.clientId && hasActiveLoan(opts.clientId)) {
+          showToast('Este cliente ya tiene el límite de préstamos activos (2)', 'error');
+          return;
+        }
+        title.textContent  = 'Nuevo préstamo';
+        submit.textContent = 'Crear préstamo';
+        note.hidden = true;
+        fillClientSelect(opts.clientId || '', false);
+        document.getElementById('form-date').value = todayOrMondayISO();
+        if (!opts.clientId && select.options.length === 1) {
+          // No hay clientes aún
+          note.hidden = false;
+          note.innerHTML = `Aún no hay clientes. Registra uno en la pestaña <strong>Clientes</strong> para poder crear préstamos.`;
+        }
+      }
+
+      document.getElementById('form-client-search').value = '';
+      document.getElementById('client-suggest').hidden = true;
+      updateLoanEndHint();
+      clearFormErrors();
+      openModal('modal-loan-form');
+    }
+
+    /* Vista previa del calendario: 16 pagos semanales desde la fecha de inicio */
+    function updateLoanEndHint() {
+      const hint      = document.getElementById('loan-end-hint');
+      const amount    = parseFloat(document.getElementById('form-amount').value);
+      const startDate = document.getElementById('form-date').value;
+      if (!amount || amount < MIN_AMOUNT || amount % 1000 !== 0 || !startDate) { hint.textContent = ''; return; }
+      const weekly = Math.round(amount * WEEKLY_PER_K / 1000);
+      const end    = getPaymentDate(startDate, WEEKS - 1);
+      
+      let extra = '';
+      if (currentPendingDeduction > 0) {
+         const toDeliver = Math.max(0, amount - currentPendingDeduction);
+         extra = `<br><strong style="color:var(--error); font-size:0.875rem;">EFECTIVO A ENTREGAR AL CLIENTE: ${fmtCurrency(toDeliver)}</strong> (descontando ${fmtCurrency(currentPendingDeduction)})`;
+      }
+      
+      hint.innerHTML = `${WEEKS} pagos semanales de ${fmtCurrency(weekly)} · total a pagar: ${fmtCurrency(weekly * WEEKS)} · último pago: ${fmtDate(end)}${extra}`;
+    }
+
+    async function handleLoanSubmit(e) {
+      e.preventDefault();
+      clearFormErrors();
+
+      const clientId  = document.getElementById('form-client').value;
+      const amount    = parseFloat(document.getElementById('form-amount').value);
+      const startDate = document.getElementById('form-date').value;
+
+      let hasError = false;
+      if (!clientId) { setFieldError('fg-client', 'form-client'); hasError = true; }
+      if (isNaN(amount) || amount < MIN_AMOUNT || amount % 1000 !== 0) { setFieldError('fg-amount', 'form-amount'); hasError = true; }
+      if (!startDate) { 
+        setFieldError('fg-date', 'form-date'); 
+        hasError = true; 
+      } else {
+        const dd = new Date(startDate + 'T00:00:00');
+        if (dd.getDay() !== 1) { // 1 = Monday
+          setFieldError('fg-date', 'form-date');
+          hasError = true;
+        }
+      }
+      if (hasError) return;
+
+      if (hasActiveLoan(clientId, renewOfId)) {
+        setFieldError('fg-client', 'form-client');
+        showToast('Este cliente ya tiene el límite de préstamos activos (2)', 'error');
+        return;
+      }
+
+      const loader = document.getElementById('global-loader');
+      if (loader) loader.classList.remove('hidden');
+
+      try {
+        if (renewOfId) {
+          // ── Renovación ──
+          const prev = loanById(renewOfId);
+          if (!prev) return;
+          prev.status    = 'renewed';
+          prev.renewedAt = todayISO();
+          
+          prev.payments.forEach(p => {
+            if (p.status === 'pending') {
+              p.status = 'paid';
+              p.paidAt = todayISO();
+            }
+          });
+          await saveLoanToSupabase(prev);
+
+          const loan = {
+            id:             uuid(),
+            number:         null,
+            clientId,
+            amount,
+            startDate,
+            status:         'active',
+            payments:       generatePayments(amount, startDate),
+            previousLoanId: prev.id,
+            renewedAt:      null,
+            createdAt:      new Date().toISOString()
+          };
+          loans.push(loan);
+          await saveLoanToSupabase(loan);
+          
+          showToast(`Renovación creada · ${loanFolio(loan)} reemplaza a ${loanFolio(prev)}`, 'success');
+        } else {
+          // ── Nuevo ──
+          const loan = {
+            id:             uuid(),
+            number:         null,
+            clientId,
+            amount,
+            startDate,
+            status:         'active',
+            payments:       generatePayments(amount, startDate),
+            previousLoanId: null,
+            renewedAt:      null,
+            createdAt:      new Date().toISOString()
+          };
+          loans.push(loan);
+          await saveLoanToSupabase(loan);
+          
+          showToast('Préstamo creado', 'success');
+        }
+
+        closeModal('modal-loan-form');
+        refreshAll();
+      } catch (err) {
+        console.error("Error al guardar préstamo en Supabase:", err);
+        const msg = err.message || err.details || (typeof err === 'string' ? err : 'Error en Supabase');
+        showToast('Error al guardar préstamo: ' + msg, 'error');
+      } finally {
+        if (loader) loader.classList.add('hidden');
+      }
+    }
+
+    /* ─────────────────────────────────────────
+       Formulario de cliente
+    ───────────────────────────────────────── */
+    let formPhotoData = { photo: null, lightBill: null };
+
+    function compressImage(file, maxSize, cb) {
+      const reader = new FileReader();
+      reader.onload = e => {
+        const img = new Image();
+        img.onload = () => {
+          const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+          const canvas = document.createElement('canvas');
+          canvas.width  = Math.round(img.width * scale);
+          canvas.height = Math.round(img.height * scale);
+          canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+          cb(canvas.toDataURL('image/jpeg', 0.75));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function updateUploadBox(key) {
+      const data   = formPhotoData[key];
+      const suffix = key === 'photo' ? 'photo' : 'lightbill';
+      document.getElementById(`preview-${suffix}`).hidden  = !data;
+      document.getElementById(`empty-${suffix}`).hidden    = !!data;
+      document.getElementById(`remove-${suffix}`).hidden   = !data;
+      if (data) document.getElementById(`preview-${suffix}`).src = data;
+      document.getElementById(`box-${suffix}`).classList.toggle('has-photo', !!data);
+    }
+
+    function setupUpload(inputId, key) {
+      const input = document.getElementById(inputId);
+      input.addEventListener('change', () => {
+        const file = input.files && input.files[0];
+        if (!file) return;
+        compressImage(file, 600, dataUrl => {
+          formPhotoData[key] = dataUrl;
+          updateUploadBox(key);
+        });
+        input.value = '';   // permite volver a elegir la misma imagen
+      });
+    }
+
+    // En teléfonos, abrir explícitamente la galería o la cámara.
+    // La galería usa un input normal de imágenes; la cámara usa capture="environment".
+    function setupPhotoSources() {
+      const galleryBtn = document.getElementById('btn-gallery-photo');
+      const cameraBtn  = document.getElementById('btn-camera-photo');
+      const galleryInput = document.getElementById('input-photo');
+      const cameraInput  = document.getElementById('input-camera-photo');
+
+      if (galleryBtn && galleryInput) {
+        galleryBtn.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          galleryInput.click();
+        });
+      }
+
+      if (cameraBtn && cameraInput) {
+        cameraBtn.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          cameraInput.click();
+        });
+      }
+
+      // Ambos orígenes terminan en la misma foto del cliente.
+      if (cameraInput) {
+        cameraInput.addEventListener('change', () => {
+          const file = cameraInput.files && cameraInput.files[0];
+          if (!file) return;
+          compressImage(file, 600, dataUrl => {
+            formPhotoData.photo = dataUrl;
+            updateUploadBox('photo');
+          });
+          cameraInput.value = '';
+        });
+      }
+
+      // También permite tocar directamente el recuadro para abrir la galería.
+      const box = document.getElementById('box-photo');
+      if (box && galleryInput) {
+        box.addEventListener('click', e => {
+          if (e.target.closest('button') || e.target.id === 'remove-photo') return;
+          galleryInput.click();
+        });
+      }
+    }
+
+    // Recibo de luz: permite elegir explícitamente desde Galería o Cámara.
+    // Ambos caminos conservan la misma variable lightBill y el mismo guardado en Supabase.
+    function setupLightBillSources() {
+      const galleryBtn = document.getElementById('btn-gallery-lightbill');
+      const cameraBtn  = document.getElementById('btn-camera-lightbill');
+      const galleryInput = document.getElementById('input-lightbill');
+      const cameraInput  = document.getElementById('input-camera-lightbill');
+      const box = document.getElementById('box-lightbill');
+
+      if (galleryBtn && galleryInput) {
+        galleryBtn.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          galleryInput.click();
+        });
+      }
+
+      if (cameraBtn && cameraInput) {
+        cameraBtn.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          cameraInput.click();
+        });
+      }
+
+      if (cameraInput) {
+        cameraInput.addEventListener('change', () => {
+          const file = cameraInput.files && cameraInput.files[0];
+          if (!file) return;
+          compressImage(file, 600, dataUrl => {
+            formPhotoData.lightBill = dataUrl;
+            updateUploadBox('lightBill');
+          });
+          cameraInput.value = '';
+        });
+      }
+
+      // Tocar el recuadro fuera de los botones abre la Galería.
+      if (box && galleryInput) {
+        box.addEventListener('click', e => {
+          if (e.target.closest('button') || e.target.id === 'remove-lightbill') return;
+          galleryInput.click();
+        });
+      }
+    }
+
+    function openClientForm(id = null) {
+      const form = document.getElementById('client-form');
+      form.reset();
+      document.getElementById('form-client-id').value = id || '';
+      document.getElementById('modal-client-form-title').textContent = id ? 'Editar cliente' : 'Nuevo cliente';
+      document.getElementById('btn-submit-client-form').textContent  = id ? 'Guardar cambios' : 'Crear cliente';
+
+      if (id) {
+        const client = clients.find(c => c.id === id);
+        if (!client) return;
+        document.getElementById('form-c-name').value    = client.name;
+        document.getElementById('form-c-phone').value   = client.phone || '';
+        document.getElementById('form-c-address').value = client.address || '';
+        document.getElementById('form-c-aval-name').value    = (client.aval && client.aval.name) || '';
+        document.getElementById('form-c-aval-phone').value   = (client.aval && client.aval.phone) || '';
+        document.getElementById('form-c-aval-address').value = (client.aval && client.aval.address) || '';
+        document.getElementById('form-c-ref-name').value    = (client.referencia && client.referencia.name) || '';
+        document.getElementById('form-c-ref-phone').value   = (client.referencia && client.referencia.phone) || '';
+        document.getElementById('form-c-ref-address').value = (client.referencia && client.referencia.address) || '';
+        document.getElementById('form-c-ref2-name').value    = (client.referencia2 && client.referencia2.name) || '';
+        document.getElementById('form-c-ref2-phone').value   = (client.referencia2 && client.referencia2.phone) || '';
+        document.getElementById('form-c-ref2-address').value = (client.referencia2 && client.referencia2.address) || '';
+        document.getElementById('form-c-ref3-name').value    = (client.referencia3 && client.referencia3.name) || '';
+        document.getElementById('form-c-ref3-phone').value   = (client.referencia3 && client.referencia3.phone) || '';
+        document.getElementById('form-c-ref3-address').value = (client.referencia3 && client.referencia3.address) || '';
+        formPhotoData = { photo: client.photo || null, lightBill: client.lightBill || null };
+      } else {
+        formPhotoData = { photo: null, lightBill: null };
+      }
+      updateUploadBox('photo');
+      updateUploadBox('lightBill');
+
+      clearFormErrors();
+      openModal('modal-client-form');
+    }
+
+    async function handleClientSubmit(e) {
+      e.preventDefault();
+      clearFormErrors();
+
+      const id      = document.getElementById('form-client-id').value;
+      const name    = document.getElementById('form-c-name').value.trim();
+      const phone   = document.getElementById('form-c-phone').value.trim();
+      const address = document.getElementById('form-c-address').value.trim();
+      const aval = {
+        name:    document.getElementById('form-c-aval-name').value.trim(),
+        phone:   document.getElementById('form-c-aval-phone').value.trim(),
+        address: document.getElementById('form-c-aval-address').value.trim()
+      };
+      const referencia = {
+        name:    document.getElementById('form-c-ref-name').value.trim(),
+        phone:   document.getElementById('form-c-ref-phone').value.trim(),
+        address: document.getElementById('form-c-ref-address').value.trim()
+      };
+      const referencia2 = {
+        name:    document.getElementById('form-c-ref2-name').value.trim(),
+        phone:   document.getElementById('form-c-ref2-phone').value.trim(),
+        address: document.getElementById('form-c-ref2-address').value.trim()
+      };
+      const referencia3 = {
+        name:    document.getElementById('form-c-ref3-name').value.trim(),
+        phone:   document.getElementById('form-c-ref3-phone').value.trim(),
+        address: document.getElementById('form-c-ref3-address').value.trim()
+      };
+
+      if (!name) { setFieldError('fg-c-name', 'form-c-name'); return; }
+      if (!referencia.name) { setFieldError('fg-c-ref', 'form-c-ref-name'); return; }
+
+      const loader = document.getElementById('global-loader');
+      if (loader) loader.classList.remove('hidden');
+
+      try {
+        let clientToSave;
+        if (id) {
+          clientToSave = clients.find(c => c.id === id);
+          if (clientToSave) {
+            Object.assign(clientToSave, {
+              name, phone, address, aval, referencia, referencia2, referencia3,
+              photo: formPhotoData.photo, lightBill: formPhotoData.lightBill
+            });
+          }
+          await saveClientToSupabase(clientToSave);
+          showToast('Cliente actualizado', 'success');
+        } else {
+          clientToSave = {
+            id: uuid(), name, phone, address, aval, referencia, referencia2, referencia3,
+            photo: formPhotoData.photo, lightBill: formPhotoData.lightBill,
+            createdAt: new Date().toISOString()
+          };
+          clients.push(clientToSave);
+          await saveClientToSupabase(clientToSave);
+          showToast('Cliente creado', 'success');
+        }
+
+        closeModal('modal-client-form');
+        refreshAll();
+      } catch (err) {
+        console.error("Error al guardar cliente en Supabase:", err);
+        const msg = err.message || err.details || (typeof err === 'string' ? err : 'Error en Supabase');
+        showToast('Error al guardar cliente: ' + msg, 'error');
+      } finally {
+        if (loader) loader.classList.add('hidden');
+      }
+    }
+
+    /* ─────────────────────────────────────────
+       Eliminación (confirmación genérica)
+    ───────────────────────────────────────── */
+    function openConfirm(title, message, confirmLabel = 'Eliminar') {
+      document.getElementById('confirm-title').textContent   = title;
+      document.getElementById('confirm-message').innerHTML   = message;
+      document.getElementById('btn-confirm-delete').textContent = confirmLabel;
+      openModal('modal-confirm');
+    }
+
+    async function confirmDelete() {
+      closeModal('modal-confirm');
+
+      if (pendingImport) {
+        pendingImport = null;
+        showToast("La restauración manual ha sido deshabilitada a favor de la DB", "error");
+        return;
+      }
+
+      if (!deleteTarget) return;
+      const { type, id } = deleteTarget;
+      deleteTarget = null;
+      
+      const loader = document.getElementById('global-loader');
+      if (loader) loader.classList.remove('hidden');
+
+      try {
+        if (type === 'loan') {
+          await supabaseClient.from('loans').delete().eq('id', id);
+          loans = loans.filter(l => l.id !== id);
+          refreshAll();
+          showToast('Préstamo eliminado', 'success');
+        } else if (type === 'client') {
+          const client = clients.find(c => c.id === id);
+          if (client && loans.some(l => l.clientId === id && l.status === 'active')) {
+            showToast('No se puede eliminar: tiene préstamos activos', 'error');
+            return;
+          }
+          await supabaseClient.from('clients').delete().eq('id', id);
+          clients = clients.filter(c => c.id !== id);
+          refreshAll();
+          showToast('Cliente eliminado', 'success');
+        }
+      } catch (err) {
+        console.error(err);
+        showToast('Error al eliminar', 'error');
+      } finally {
+        if (loader) loader.classList.add('hidden');
+      }
+    }
+
+    /* ─────────────────────────────────────────
+       Form Validation Helpers
+    ───────────────────────────────────────── */
+    function setFieldError(groupId, inputId) {
+      document.getElementById(groupId).classList.add('is-error');
+      document.getElementById(inputId).classList.add('has-error');
+    }
+
+    function clearFormErrors() {
+      document.querySelectorAll('.form-group').forEach(g => g.classList.remove('is-error'));
+      document.querySelectorAll('.form-input').forEach(i => i.classList.remove('has-error'));
+    }
+
+    /* ─────────────────────────────────────────
+       Modal Helpers
+    ───────────────────────────────────────── */
+    function openModal(id) {
+      document.getElementById(id).classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      const panel = document.getElementById(id).querySelector('.modal-panel');
+      const focusable = panel.querySelector('input:not([type="hidden"]):not(:disabled), select:not(:disabled), button, [tabindex]:not([tabindex="-1"])');
+      if (focusable) setTimeout(() => focusable.focus(), 100);
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('is-open');
+      const open = ['modal-loan-form','modal-client-form','modal-loan-detail','modal-client-detail','modal-confirm']
+        .some(m => document.getElementById(m).classList.contains('is-open'));
+      if (!open) document.body.style.overflow = '';
+    }
+
+    /* ─────────────────────────────────────────
+       Toast
+    ───────────────────────────────────────── */
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast toast--${type}`;
+      toast.textContent = message;
+      container.appendChild(toast);
+      setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(8px)';
+        toast.style.transition = 'all 0.3s ease';
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+
+    /* ─────────────────────────────────────────
+       Respaldo (exportar / restaurar)
+    ───────────────────────────────────────── */
+    function exportBackup() {
+      const payload = JSON.stringify({
+        app: 'prestamos', version: 2,
+        exportedAt: new Date().toISOString(),
+        clients, loans, nextNumber
+      }, null, 2);
+      const url = URL.createObjectURL(new Blob([payload], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `prestamos-respaldo-${todayISO()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      showToast('Respaldo descargado', 'success');
+    }
+
+    function handleImportFile(e) {
+      const file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = ev => {
+        let d;
+        try { d = JSON.parse(ev.target.result); } catch { d = null; }
+        if (!d || !Array.isArray(d.clients) || !Array.isArray(d.loans)) {
+          showToast('El archivo no es un respaldo válido', 'error');
+          return;
+        }
+        pendingImport = d;
+        openConfirm('Restaurar respaldo',
+          `El respaldo trae <strong>${d.clients.length}</strong> clientes y <strong>${d.loans.length}</strong> préstamos.<br>` +
+          `Se reemplazarán los <strong>${clients.length}</strong> clientes y <strong>${loans.length}</strong> préstamos actuales.<br>` +
+          `Esta acción no se puede deshacer.`,
+          'Restaurar');
+      };
+      reader.readAsText(file);
+    }
+
+    /* ─────────────────────────────────────────
+       Refresh global
+    ───────────────────────────────────────── */
+    async function refreshAll() {
+      refreshStats();
+      renderLoanList();
+      renderClientList();
+      await renderRenewalList();
+    }
+
+    /* ─────────────────────────────────────────
+       Event Listeners
+    ───────────────────────────────────────── */
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+    });
+
+    // Botón "Nuevo" del header: crea préstamo o cliente según la pestaña activa
+    document.getElementById('btn-header-new').addEventListener('click', () => {
+      if (currentTab === 'clients') openClientForm();
+      else openLoanForm({});
+    });
+
+    // Respaldo: exportar y restaurar
+    document.getElementById('btn-export').addEventListener('click', exportBackup);
+    document.getElementById('btn-import').addEventListener('click', () => document.getElementById('input-import').click());
+    document.getElementById('input-import').addEventListener('change', handleImportFile);
+
+    document.getElementById('btn-close-loan-form').addEventListener('click', () => closeModal('modal-loan-form'));
+    document.getElementById('btn-cancel-loan-form').addEventListener('click', () => closeModal('modal-loan-form'));
+    document.getElementById('loan-form').addEventListener('submit', handleLoanSubmit);
+    document.getElementById('form-amount').addEventListener('input', updateLoanEndHint);
+    document.getElementById('form-date').addEventListener('input', updateLoanEndHint);
+
+    // Buscador de clientes con sugerencias (coincidencia por inicio de palabra)
+    function nameStartsWith(name, q) {
+      return name.toLowerCase().split(/\s+/).some(w => w.startsWith(q));
+    }
+
+    function renderSuggestions(query) {
+      const box = document.getElementById('client-suggest');
+      const q = query.trim().toLowerCase();
+      if (!q || clients.length === 0) { box.hidden = true; box.innerHTML = ''; return; }
+
+      const matches = [...clients]
+        .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+        .filter(c => nameStartsWith(c.name, q))
+        .slice(0, 8);
+
+      if (matches.length === 0) {
+        box.innerHTML = `<div class="suggest-item suggest-item--empty">Sin coincidencias con "${escHtml(query.trim())}"</div>`;
+        box.hidden = false;
+        return;
+      }
+
+      box.innerHTML = matches.map(c => {
+        const busy = hasActiveLoan(c.id);
+        return `
+        <div class="suggest-item" data-id="${c.id}" ${busy ? 'data-busy="1"' : ''} tabindex="0" role="button">
+          <div class="suggest-avatar">${c.photo ? `<img src="${c.photo}" alt="">` : initials(c.name)}</div>
+          <span>${escHtml(c.name)}${busy ? ' <span class="suggest-busy">· préstamo activo</span>' : ''}</span>
+        </div>`;
+      }).join('');
+      box.hidden = false;
+
+      box.querySelectorAll('.suggest-item[data-id]').forEach(item => {
+        item.addEventListener('click', () => {
+          if (item.dataset.busy) {
+            showToast('Este cliente ya tiene un préstamo activo', 'error');
+            return;
+          }
+          fillClientSelect(item.dataset.id, false, '');
+          document.getElementById('fg-client').classList.remove('is-error');
+          document.getElementById('form-client-search').value = '';
+          box.hidden = true;
+        });
+      });
+    }
+
+    document.getElementById('form-client-search').addEventListener('input', e => renderSuggestions(e.target.value));
+
+    // Cerrar sugerencias al hacer clic fuera
+    document.addEventListener('click', e => {
+      if (!e.target.closest('.client-picker')) document.getElementById('client-suggest').hidden = true;
+    });
+
+    document.getElementById('btn-close-client-form').addEventListener('click', () => closeModal('modal-client-form'));
+    document.getElementById('btn-cancel-client-form').addEventListener('click', () => closeModal('modal-client-form'));
+    document.getElementById('client-form').addEventListener('submit', handleClientSubmit);
+
+    // Subida de fotos (cliente y recibo de luz)
+    setupUpload('input-photo', 'photo');
+    setupUpload('input-lightbill', 'lightBill');
+    setupPhotoSources();
+    setupLightBillSources();
+    document.getElementById('remove-photo').addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      formPhotoData.photo = null;
+      updateUploadBox('photo');
+    });
+    document.getElementById('remove-lightbill').addEventListener('click', e => {
+      e.preventDefault(); e.stopPropagation();
+      formPhotoData.lightBill = null;
+      updateUploadBox('lightBill');
+    });
+
+    // Lightbox de fotos
+    function openLightbox(src) {
+      document.getElementById('lightbox-img').src = src;
+      document.getElementById('photo-lightbox').classList.add('is-open');
+    }
+    document.getElementById('photo-lightbox').addEventListener('click', function () {
+      this.classList.remove('is-open');
+    });
+
+    document.getElementById('btn-close-loan-detail').addEventListener('click', () => closeModal('modal-loan-detail'));
+    document.getElementById('btn-close-client-detail').addEventListener('click', () => closeModal('modal-client-detail'));
+    document.getElementById('btn-close-confirm').addEventListener('click', () => closeModal('modal-confirm'));
+    document.getElementById('btn-cancel-confirm').addEventListener('click', () => closeModal('modal-confirm'));
+    document.getElementById('btn-confirm-delete').addEventListener('click', confirmDelete);
+
+    // Close modal on overlay click
+    ['modal-loan-form', 'modal-client-form', 'modal-loan-detail', 'modal-client-detail', 'modal-confirm'].forEach(id => {
+      document.getElementById(id).addEventListener('click', e => {
+        if (e.target.classList.contains('modal-overlay')) closeModal(id);
+      });
+    });
+
+    // Close modal on Escape
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        ['modal-loan-form', 'modal-client-form', 'modal-loan-detail', 'modal-client-detail', 'modal-confirm'].forEach(id => {
+          if (document.getElementById(id).classList.contains('is-open')) closeModal(id);
+        });
+        const lb = document.getElementById('photo-lightbox');
+        if (lb.classList.contains('is-open')) lb.classList.remove('is-open');
+      }
+    });
+
+    // Card keyboard accessibility
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.target.classList.contains('loan-row') || e.target.classList.contains('client-row'))) {
+        e.target.click();
+      }
+    });
+
+    /* ─────────────────────────────────────────
+       Init
+    ───────────────────────────────────────── */
+    loadData(); // Carga todos los datos asincrónicamente desde Supabase
+  </script>
+</body>
+</html>
